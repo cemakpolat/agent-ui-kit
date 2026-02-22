@@ -5,8 +5,10 @@ import {
   FlightCardOperator,
   FlightCardExpert,
   MetricCard,
+  SensorCard,
   type FlightOption,
   type MetricData,
+  type SensorReading,
 } from '@hari/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,11 +80,15 @@ function FlightListExpert({ flights, onExplain }: FlightListProps) {
   );
 }
 
+// Return the named component directly — NOT a new arrow function per call.
+// Returning `() => (props) => <Foo {...props} />` creates a fresh anonymous
+// component reference on every resolver call, causing React to unmount+remount
+// the subtree instead of reconciling it.
 registry.register('travel', 'comparison', {
-  executive: () => (props: FlightListProps) => <FlightListExecutive {...props} />,
-  operator:  () => (props: FlightListProps) => <FlightListOperator {...props} />,
-  expert:    () => (props: FlightListProps) => <FlightListExpert {...props} />,
-  default:   () => (props: FlightListProps) => <FlightListOperator {...props} />,
+  executive: () => FlightListExecutive,
+  operator:  () => FlightListOperator,
+  expert:    () => FlightListExpert,
+  default:   () => FlightListOperator,
 });
 
 // ── CloudOps / diagnostic_overview ───────────────────────────────────────────
@@ -109,11 +115,47 @@ function MetricGrid({ metrics, density, onExplain }: MetricGridProps) {
   );
 }
 
+// MetricGrid reads density from props — IntentRenderer passes it from compiledView.
 registry.register('cloudops', 'diagnostic_overview', {
-  executive: () => (props: MetricGridProps) => <MetricGrid {...props} density="executive" />,
-  operator:  () => (props: MetricGridProps) => <MetricGrid {...props} density="operator" />,
-  expert:    () => (props: MetricGridProps) => <MetricGrid {...props} density="expert" />,
-  default:   () => (props: MetricGridProps) => <MetricGrid {...props} density="operator" />,
+  default: () => MetricGrid,
+});
+
+// ── IoT / sensor_overview ─────────────────────────────────────────────────────
+// Demonstrates extensibility: new domain + new intent type, zero changes to
+// the compiler or renderer.
+
+interface SensorGridProps {
+  sensors: SensorReading[];
+  density: 'executive' | 'operator' | 'expert';
+  onExplain?: (id: string) => void;
+}
+
+function SensorGrid({ sensors, density, onExplain }: SensorGridProps) {
+  // Sort: critical first, then warning, then ok, then offline
+  const STATUS_ORDER = { critical: 0, warning: 1, ok: 2, offline: 3 };
+  const sorted = [...sensors].sort(
+    (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status],
+  );
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: density === 'executive'
+          ? 'repeat(auto-fill, minmax(140px, 1fr))'
+          : 'repeat(auto-fill, minmax(220px, 1fr))',
+        gap: '0.75rem',
+      }}
+    >
+      {sorted.map((s) => (
+        <SensorCard key={s.id} sensor={s} density={density} onExplain={onExplain} />
+      ))}
+    </div>
+  );
+}
+
+registry.register('iot', 'sensor_overview', {
+  default: () => SensorGrid,
 });
 
 // ── Generic fallback (already handled by IntentRenderer, but here for doc purposes) ──

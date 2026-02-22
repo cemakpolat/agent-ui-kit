@@ -7,6 +7,7 @@ export * from './schemas/intent';
 // Compiler
 export * from './compiler/registry';
 export * from './compiler/compiler';
+export * from './compiler/version';
 
 // Stores
 export * from './store/intent';

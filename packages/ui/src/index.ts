@@ -3,6 +3,8 @@ export { IntentRenderer } from './components/IntentRenderer';
 export { BlastRadiusBadge } from './components/BlastRadiusBadge';
 export { ExplainPanel } from './components/ExplainPanel';
 export { AmbiguityControls } from './components/AmbiguityControls';
+export { IntentErrorBoundary } from './components/IntentErrorBoundary';
+export { HypotheticalOverlay } from './components/HypotheticalOverlay';
 export { DensitySelector } from './components/primitives/DensitySelector';
 
 // Domain components — travel
@@ -16,3 +18,7 @@ export type { FlightOption } from './components/domain/travel/FlightCard';
 // Domain components — cloudops
 export { MetricCard } from './components/domain/cloudops/MetricCard';
 export type { MetricData } from './components/domain/cloudops/MetricCard';
+
+// Domain components — iot
+export { SensorCard } from './components/domain/iot/SensorCard';
+export type { SensorReading } from './components/domain/iot/SensorCard';

@@ -15,6 +15,12 @@ import { AmbiguityControls } from './AmbiguityControls';
 //   - explainability panels (lazy, per-element)
 //   - action buttons with blast-radius badges and two-step confirmation
 //   - a FallbackComponent when no registry entry exists
+//
+// Component resolution uses useMemo (not useEffect) so DomainComponent and
+// compiledView.data are ALWAYS in sync within the same render. Using useEffect
+// caused a race condition: when the intent switched, data updated synchronously
+// but the component updated one render later, so the old component briefly
+// received the new domain's data (e.g. FlightList receiving { metrics }).
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -23,10 +29,6 @@ interface Props {
   onAmbiguityChange?: (controlId: string, value: unknown) => void;
   onWhatIf?: (query: string) => void;
 }
-
-// Box pattern: wrapping the component avoids React treating it as a setState updater
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ComponentBox = { C: React.ComponentType<any> };
 
 export function IntentRenderer({ compiledView, onActionExecute, onAmbiguityChange, onWhatIf }: Props) {
   const {
@@ -45,24 +47,17 @@ export function IntentRenderer({ compiledView, onActionExecute, onAmbiguityChang
 
   const density = densityOverride ?? compiledView.density;
 
-  const [componentBox, setComponentBox] = React.useState<ComponentBox | null>(null);
-
-  React.useEffect(() => {
-    if (!compiledView.resolvedComponent) {
-      setComponentBox(null);
-      return;
-    }
+  // Resolve component synchronously so it is always in sync with compiledView.data.
+  // Async resolvers (lazy-loaded components) return null here; callers should wrap
+  // such resolvers with React.lazy + Suspense at the registry level instead.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const DomainComponent = React.useMemo<React.ComponentType<any> | null>(() => {
+    if (!compiledView.resolvedComponent) return null;
     const result = compiledView.resolvedComponent();
-    if (result instanceof Promise) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      result.then((C) => setComponentBox({ C: C as React.ComponentType<any> }));
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setComponentBox({ C: result as React.ComponentType<any> });
-    }
+    if (result instanceof Promise) return null; // async: use React.lazy externally
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return result as React.ComponentType<any>;
   }, [compiledView.resolvedComponent]);
-
-  const DomainComponent = componentBox?.C ?? null;
 
   return (
     <div style={{ width: '100%' }}>
