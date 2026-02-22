@@ -22,3 +22,7 @@ export type { MetricData } from './components/domain/cloudops/MetricCard';
 // Domain components — iot
 export { SensorCard } from './components/domain/iot/SensorCard';
 export type { SensorReading } from './components/domain/iot/SensorCard';
+
+// Hooks
+export { useAgentBridge } from './hooks/useAgentBridge';
+export type { UseAgentBridgeResult } from './hooks/useAgentBridge';

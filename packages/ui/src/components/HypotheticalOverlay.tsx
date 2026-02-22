@@ -1,4 +1,6 @@
 import React from 'react';
+import type { AgentBridge, WhatIfResult as BridgeWhatIfResult } from '@hari/core';
+import type { IntentPayload } from '@hari/core';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HypotheticalOverlay
@@ -20,12 +22,20 @@ interface HypotheticalResult {
   summary: string;
   deltas: Array<{ field: string; was: string; becomes: string; impact: 'positive' | 'negative' | 'neutral' }>;
   caveats: string[];
+  confidence?: number;
 }
 
 interface Props {
   query: string;
   onDismiss: () => void;
-  /** In production this would be a real agent call returning a streaming response */
+  /**
+   * If provided, the overlay calls bridge.queryWhatIf() for a live agent response.
+   * Falls back to the built-in simulation when omitted.
+   */
+  bridge?: AgentBridge;
+  /** Required when bridge is provided — the intent at the time of the query */
+  intentSnapshot?: IntentPayload;
+  /** Override the simulation entirely with a custom async function */
   onSimulate?: (query: string) => Promise<HypotheticalResult>;
 }
 
@@ -100,19 +110,49 @@ async function defaultSimulate(query: string): Promise<HypotheticalResult> {
   };
 }
 
-export function HypotheticalOverlay({ query, onDismiss, onSimulate }: Props) {
+function bridgeResultToLocal(r: BridgeWhatIfResult): HypotheticalResult {
+  return {
+    summary: r.reasoning,
+    deltas: r.deltas.map((d) => ({
+      field: d.field,
+      was: String(d.was),
+      becomes: String(d.becomes),
+      impact: d.impact,
+    })),
+    caveats: r.caveats,
+    confidence: r.confidence,
+  };
+}
+
+export function HypotheticalOverlay({ query, onDismiss, bridge, intentSnapshot, onSimulate }: Props) {
   const [result, setResult] = React.useState<HypotheticalResult | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     setLoading(true);
     setResult(null);
-    const simulate = onSimulate ?? defaultSimulate;
-    simulate(query).then((r) => {
-      setResult(r);
-      setLoading(false);
-    });
-  }, [query, onSimulate]);
+
+    let cancelled = false;
+
+    const run = async () => {
+      let r: HypotheticalResult;
+      if (bridge && intentSnapshot) {
+        const raw = await bridge.queryWhatIf({ question: query, intentSnapshot });
+        r = bridgeResultToLocal(raw);
+      } else if (onSimulate) {
+        r = await onSimulate(query);
+      } else {
+        r = await defaultSimulate(query);
+      }
+      if (!cancelled) {
+        setResult(r);
+        setLoading(false);
+      }
+    };
+
+    run().catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [query, bridge, intentSnapshot, onSimulate]);
 
   return (
     <div
@@ -173,10 +213,17 @@ export function HypotheticalOverlay({ query, onDismiss, onSimulate }: Props) {
         </div>
       ) : result ? (
         <>
-          {/* Summary */}
-          <p style={{ margin: '0 0 0.875rem', color: '#4c1d95', lineHeight: '1.6', fontSize: '0.875rem' }}>
-            {result.summary}
-          </p>
+          {/* Summary + confidence */}
+          <div style={{ marginBottom: '0.875rem' }}>
+            <p style={{ margin: '0 0 0.375rem', color: '#4c1d95', lineHeight: '1.6', fontSize: '0.875rem' }}>
+              {result.summary}
+            </p>
+            {result.confidence !== undefined && (
+              <span style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: 600 }}>
+                Agent confidence: {(result.confidence * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
 
           {/* Deltas table */}
           {result.deltas.length > 0 && (

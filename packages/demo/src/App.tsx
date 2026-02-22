@@ -5,6 +5,8 @@ import {
   useUIStore,
   IntentPayloadSchema,
   checkSchemaVersion,
+  buildCapabilityManifest,
+  MockAgentBridge,
 } from '@hari/core';
 import type { IntentPayloadInput } from '@hari/core';
 import {
@@ -12,6 +14,7 @@ import {
   DensitySelector,
   IntentErrorBoundary,
   HypotheticalOverlay,
+  useAgentBridge,
 } from '@hari/ui';
 import { registry } from './registry';
 import { travelIntent } from './scenarios/travel';
@@ -25,6 +28,11 @@ import { iotIntent } from './scenarios/iot';
 //   1. Travel     — flight comparison, price/comfort negotiation
 //   2. CloudOps   — incident dashboard, blast-radius confirm
 //   3. IoT        — sensor grid, new domain (extensibility demo)
+//
+// Transport: MockAgentBridge simulates real agent roundtrips —
+//   - loadScenario() → emits 'intent' → useAgentBridge → setIntent
+//   - sendModification() → bridge applies patch (400 ms) → re-emits intent
+//   - queryWhatIf() → bridge runs domain-aware simulation → HypotheticalOverlay
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SCENARIOS: Record<string, { label: string; intent: IntentPayloadInput; emoji: string }> = {
@@ -33,24 +41,50 @@ const SCENARIOS: Record<string, { label: string; intent: IntentPayloadInput; emo
   iot:      { label: 'IoT',      emoji: '📡', intent: iotIntent      },
 };
 
+// Registered domains/intent-types for capability manifest
+const REGISTERED_DOMAINS = ['travel', 'cloudops', 'iot'];
+const REGISTERED_INTENT_TYPES = ['comparison', 'diagnostic_overview', 'sensor_overview'];
+
+const capabilityManifest = buildCapabilityManifest(
+  REGISTERED_DOMAINS,
+  REGISTERED_INTENT_TYPES,
+);
+
 export function App() {
   const [activeScenario, setActiveScenario] = React.useState<string>('travel');
   const [log, setLog] = React.useState<string[]>([]);
   const [hypotheticalQuery, setHypotheticalQuery] = React.useState<string | null>(null);
   const [versionWarning, setVersionWarning] = React.useState<string | null>(null);
 
-  const { setIntent, currentIntent, commitModifications } = useIntentStore();
+  const { currentIntent, commitModifications, modifyParameter } = useIntentStore();
   const { densityOverride, setHypotheticalMode } = useUIStore();
 
-  const addLog = (msg: string) =>
-    setLog((prev) => [`${new Date().toLocaleTimeString()} ${msg}`, ...prev].slice(0, 50));
+  const addLog = React.useCallback((msg: string) =>
+    setLog((prev) => [`${new Date().toLocaleTimeString()} ${msg}`, ...prev].slice(0, 50))
+  , []);
 
-  // Load scenario + schema version check
+  // ── Transport bridge (stable identity across renders) ─────────────────────
+  const bridge = React.useMemo(
+    () => new MockAgentBridge({ connectLatencyMs: 150, roundtripLatencyMs: 400 }),
+    [],
+  );
+
+  const { connectionState, sendModification } = useAgentBridge(bridge, capabilityManifest);
+
+  // Log connection state changes
+  const prevStateRef = React.useRef(connectionState);
+  React.useEffect(() => {
+    if (connectionState !== prevStateRef.current) {
+      addLog(`[bridge] ${prevStateRef.current} → ${connectionState}`);
+      prevStateRef.current = connectionState;
+    }
+  }, [connectionState, addLog]);
+
+  // ── Scenario loading ───────────────────────────────────────────────────────
   React.useEffect(() => {
     const scenario = SCENARIOS[activeScenario];
     const raw = scenario.intent;
 
-    // Schema version guard
     const compat = checkSchemaVersion(raw.version ?? '1.0.0');
     if (compat.status === 'incompatible') {
       setVersionWarning(compat.reason);
@@ -63,47 +97,55 @@ export function App() {
     }
 
     const parsed = IntentPayloadSchema.parse(raw);
-    setIntent(parsed);
-    addLog(`[agent] Intent loaded: ${parsed.intentId.slice(0, 8)}… domain=${parsed.domain} type=${parsed.type} confidence=${(parsed.confidence * 100).toFixed(0)}%`);
 
-    // Reset hypothetical when switching scenarios
+    // Route through the bridge — it emits 'intent' → useAgentBridge → setIntent
+    bridge.loadScenario(parsed);
+    addLog(
+      `[agent] Scenario loaded: ${parsed.intentId.slice(0, 8)}… ` +
+      `domain=${parsed.domain} type=${parsed.type} ` +
+      `confidence=${(parsed.confidence * 100).toFixed(0)}%`,
+    );
+
     setHypotheticalQuery(null);
     setHypotheticalMode(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeScenario]);
 
+  // ── Compiled view ──────────────────────────────────────────────────────────
   const compiled = React.useMemo(() => {
     if (!currentIntent) return null;
     return compileIntent(currentIntent, registry, { userDensityOverride: densityOverride });
   }, [currentIntent, densityOverride]);
 
-  const handleAmbiguityChange = (controlId: string, value: unknown) => {
+  // ── Event handlers ─────────────────────────────────────────────────────────
+  const handleAmbiguityChange = React.useCallback((controlId: string, value: unknown) => {
     addLog(`[user] Control "${controlId}" → ${JSON.stringify(value)}`);
-    setTimeout(() => {
-      const patch = commitModifications();
-      if (patch) {
-        addLog(`[agent] Patch received (${Object.keys(patch.modifications).join(', ')}) → optimistic re-sort`);
-      }
-    }, 300);
-  };
+    // Stage the change so commitModifications() produces a non-empty patch
+    modifyParameter(controlId, value);
+    const patch = commitModifications();
+    if (patch) {
+      sendModification(patch); // goes through transport → bridge applies → re-emits intent
+      addLog(`[bridge] Patch dispatched (${Object.keys(patch.modifications).join(', ')}) → awaiting roundtrip…`);
+    }
+  }, [addLog, modifyParameter, commitModifications, sendModification]);
 
-  const handleActionExecute = (actionId: string) => {
+  const handleActionExecute = React.useCallback((actionId: string) => {
     addLog(`[user] Action executed: "${actionId}"`);
     addLog(`[agent] Acknowledged — propagating to downstream systems…`);
-  };
+  }, [addLog]);
 
-  const handleWhatIf = (query: string) => {
-    addLog(`[user] What-if query: "${query}"`);
+  const handleWhatIf = React.useCallback((query: string) => {
+    addLog(`[user] What-if: "${query}"`);
     setHypotheticalQuery(query);
     setHypotheticalMode(true, query);
-    addLog(`[agent] Running hypothetical analysis in isolated context…`);
-  };
+    addLog(`[bridge] queryWhatIf dispatched — running in isolated context…`);
+  }, [addLog, setHypotheticalMode]);
 
-  const dismissHypothetical = () => {
+  const dismissHypothetical = React.useCallback(() => {
     setHypotheticalQuery(null);
     setHypotheticalMode(false);
     addLog('[user] Dismissed hypothetical overlay');
-  };
+  }, [addLog, setHypotheticalMode]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -135,7 +177,11 @@ export function App() {
           ))}
         </div>
 
-        {compiled && <DensitySelector agentRecommended={compiled.density} />}
+        {/* Right side: connection badge + density selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <ConnectionBadge state={connectionState} />
+          {compiled && <DensitySelector agentRecommended={compiled.density} />}
+        </div>
       </header>
 
       {/* ── Schema version warning ────────────────────────────────────── */}
@@ -200,17 +246,19 @@ export function App() {
                 />
               ) : (
                 <div style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>
-                  Loading intent…
+                  {connectionState === 'connecting' ? 'Connecting to agent…' : 'Loading intent…'}
                 </div>
               )}
             </div>
           </IntentErrorBoundary>
 
-          {/* Hypothetical overlay — isolated, does NOT mutate intent state */}
+          {/* Hypothetical overlay — uses bridge.queryWhatIf() when connected */}
           {hypotheticalQuery && (
             <HypotheticalOverlay
               query={hypotheticalQuery}
               onDismiss={dismissHypothetical}
+              bridge={connectionState === 'connected' ? bridge : undefined}
+              intentSnapshot={currentIntent ?? undefined}
             />
           )}
         </div>
@@ -224,11 +272,11 @@ export function App() {
               <div style={{ fontSize: '0.75rem', color: '#475569', lineHeight: '1.7' }}>
                 <div><strong>Version:</strong> {currentIntent?.version}</div>
                 <div><strong>Domain:</strong> {compiled.domain}</div>
-                <div><strong>Density:</strong> {compiled.density}{densityOverride ? ' (user override)' : ' (agent rec.)'}</div>
+                <div><strong>Density:</strong> {compiled.density}{densityOverride ? ' (user)' : ' (agent)'}</div>
                 <div><strong>Component:</strong> {compiled.resolvedComponent ? '✓ resolved' : '⚠ fallback'}</div>
                 <div><strong>Ambiguities:</strong> {compiled.ambiguities.length}</div>
                 <div><strong>Actions:</strong> {compiled.actions.length}</div>
-                <div><strong>Explain panels:</strong> {Object.keys(compiled.explainability).length} registered</div>
+                <div><strong>Explain panels:</strong> {Object.keys(compiled.explainability).length}</div>
               </div>
             </Panel>
           )}
@@ -250,10 +298,11 @@ export function App() {
               ) : (
                 log.map((entry, i) => (
                   <div key={i} style={{
-                    color: entry.startsWith('[error]') ? '#dc2626'
-                         : entry.startsWith('[warn]')  ? '#a16207'
-                         : entry.includes('[agent]')   ? '#7c3aed'
-                         : entry.includes('[user]')    ? '#0369a1'
+                    color: entry.startsWith('[error]')   ? '#dc2626'
+                         : entry.startsWith('[warn]')    ? '#a16207'
+                         : entry.includes('[bridge]')    ? '#0369a1'
+                         : entry.includes('[agent]')     ? '#7c3aed'
+                         : entry.includes('[user]')      ? '#0f766e'
                          : '#475569',
                   }}>
                     {entry}
@@ -266,13 +315,13 @@ export function App() {
           {/* Architecture notes */}
           <Panel title="Architecture Notes">
             <ul style={{ margin: 0, paddingLeft: '1.125rem', fontSize: '0.73rem', color: '#64748b', lineHeight: '1.8' }}>
+              <li>MockAgentBridge → full transport roundtrip</li>
+              <li>loadScenario → 'intent' event → useAgentBridge → setIntent</li>
+              <li>sendModification → 400 ms → re-emit updated intent</li>
+              <li>queryWhatIf → HypotheticalOverlay (bridge or fallback)</li>
               <li>useMemo resolution — component + data always in sync</li>
-              <li>Stable component refs — no unmount/remount on re-render</li>
-              <li>IntentErrorBoundary — graceful domain component errors</li>
-              <li>Hypothetical overlay — isolated, never mutates intent</li>
-              <li>Schema version guard — compat check before render</li>
-              <li>IoT = new domain with zero compiler changes</li>
               <li>Two stores: Intent (committed) + UI (ephemeral)</li>
+              <li>IoT = new domain with zero compiler changes</li>
             </ul>
           </Panel>
         </div>
@@ -291,6 +340,24 @@ function ConfidencePill({ confidence }: { confidence: number }) {
   return (
     <div style={{ padding: '0.25rem 0.625rem', borderRadius: '0.375rem', backgroundColor: c.bg, border: `1px solid ${c.border}`, color: c.text, fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
       {pct}% confidence
+    </div>
+  );
+}
+
+function ConnectionBadge({ state }: { state: string }) {
+  const cfg: Record<string, { dot: string; label: string; text: string }> = {
+    connected:    { dot: '#22c55e', label: 'Connected',    text: '#86efac' },
+    connecting:   { dot: '#f59e0b', label: 'Connecting…',  text: '#fcd34d' },
+    reconnecting: { dot: '#f59e0b', label: 'Reconnecting', text: '#fcd34d' },
+    disconnected: { dot: '#94a3b8', label: 'Disconnected', text: '#94a3b8' },
+    idle:         { dot: '#94a3b8', label: 'Idle',         text: '#94a3b8' },
+    error:        { dot: '#ef4444', label: 'Error',        text: '#fca5a5' },
+  };
+  const { dot, label, text } = cfg[state] ?? cfg.idle;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.7rem', color: text }}>
+      <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: dot, display: 'inline-block' }} />
+      {label}
     </div>
   );
 }
