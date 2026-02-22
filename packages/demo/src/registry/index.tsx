@@ -185,21 +185,32 @@ registry.register('travel', 'comparison_lazy', {
 // Living document: AI-generated rich text with sections, callouts, metrics,
 // code blocks, and per-section confidence indicators.
 //
-// DocumentRenderer reads the 'show-confidence' ambiguity control value and the
-// 'report-depth' selection via its showConfidence and density props.
+// IntentRenderer spreads compiledView.data as individual props (line 98 of
+// IntentRenderer.tsx: <DomainComponent {...compiledView.data} density={...} />)
+// so DocumentWrapper receives DocumentData fields as top-level props — not a
+// single `data` object.  Destructure them explicitly and reconstruct for
+// DocumentRenderer, exactly as FlightListXxx receives `flights` directly.
 
 interface DocumentWrapperProps {
-  data: unknown;
+  // DocumentData fields spread from compiledView.data by IntentRenderer
+  title?: string;
+  sections?: unknown[];
+  author?: string;
+  publishedAt?: string;
+  summary?: string;
+  revision?: number;
   density: 'executive' | 'operator' | 'expert';
   onExplain?: (id: string) => void;
-  // Passed through from the ambiguity control value
   showConfidence?: boolean;
 }
 
-function DocumentWrapper({ data, density, onExplain, showConfidence = true }: DocumentWrapperProps) {
+function DocumentWrapper({
+  title, sections, author, publishedAt, summary, revision,
+  density, onExplain, showConfidence = true,
+}: DocumentWrapperProps) {
   return (
     <DocumentRenderer
-      data={data}
+      data={{ title, sections, author, publishedAt, summary, revision }}
       density={density}
       onExplain={onExplain}
       showConfidence={showConfidence}
