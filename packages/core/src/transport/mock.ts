@@ -29,6 +29,7 @@ export class MockAgentBridge extends BaseAgentBridge {
   private readonly _connectLatency: number;
   private readonly _roundtripLatency: number;
   private _pendingTimers = new Set<ReturnType<typeof setTimeout>>();
+  private _liveUpdateTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(opts: MockTransportOptions = {}) {
     super(opts);
@@ -55,6 +56,7 @@ export class MockAgentBridge extends BaseAgentBridge {
   }
 
   disconnect(): void {
+    this.stopLiveUpdates();
     this._pendingTimers.forEach(clearTimeout);
     this._pendingTimers.clear();
     this.cancelReconnect();
@@ -71,6 +73,53 @@ export class MockAgentBridge extends BaseAgentBridge {
     this._currentIntent = intent;
     if (this.connectionState === 'connected') {
       this.emit('intent', intent);
+    }
+  }
+
+  // ── Live update helpers ─────────────────────────────────────────────────────
+
+  /**
+   * Immediately push a mutated intent through the bridge without a roundtrip
+   * delay.  The mutation function receives the current intent and returns the
+   * new one; the bridge state is updated accordingly.
+   *
+   * Useful for simulating proactive agent pushes from outside tests or demos.
+   */
+  pushUpdate(mutationFn: (current: IntentPayload) => IntentPayload): void {
+    if (!this._currentIntent) return;
+    const updated = mutationFn(this._currentIntent);
+    this._currentIntent = updated;
+    if (this.connectionState === 'connected') {
+      this.emit('intent', updated);
+    }
+  }
+
+  /**
+   * Start periodic live updates that simulate an agent continuously pushing
+   * fresh data (e.g. streaming sensor readings, live pricing, metric polling).
+   *
+   * The mutation function is called on each tick with the current intent and
+   * should return the next intent state.  Calling startLiveUpdates() again
+   * replaces the previous interval.
+   *
+   * @param intervalMs  How often to push an update (ms).
+   * @param mutationFn  Pure function: currentIntent → nextIntent.
+   */
+  startLiveUpdates(
+    intervalMs: number,
+    mutationFn: (current: IntentPayload) => IntentPayload,
+  ): void {
+    this.stopLiveUpdates();
+    this._liveUpdateTimer = setInterval(() => {
+      this.pushUpdate(mutationFn);
+    }, intervalMs);
+  }
+
+  /** Stop any running live update interval started by startLiveUpdates(). */
+  stopLiveUpdates(): void {
+    if (this._liveUpdateTimer !== null) {
+      clearInterval(this._liveUpdateTimer);
+      this._liveUpdateTimer = null;
     }
   }
 

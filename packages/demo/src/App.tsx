@@ -22,6 +22,11 @@ import { travelIntent } from './scenarios/travel';
 import { cloudopsIntent } from './scenarios/cloudops';
 import { iotIntent } from './scenarios/iot';
 import { documentIntent } from './scenarios/document';
+import {
+  makeIotMutator,
+  makeCloudopsMutator,
+  makeTravelMutator,
+} from './scenarios/live-mutations';
 
 // Enable telemetry — all events are echoed to the Negotiation Log via subscribe().
 telemetry.enable();
@@ -56,11 +61,22 @@ const capabilityManifest = buildCapabilityManifest(
   REGISTERED_INTENT_TYPES,
 );
 
+/** Per-scenario live-update mutator factories. Scenarios without a live mode are undefined. */
+const LIVE_MUTATORS: Record<string, (() => (intent: import('@hari/core').IntentPayload) => import('@hari/core').IntentPayload) | undefined> = {
+  iot:      makeIotMutator,
+  cloudops: makeCloudopsMutator,
+  travel:   makeTravelMutator,
+};
+
+/** How often the live mutator fires (ms). */
+const LIVE_UPDATE_INTERVAL_MS = 2000;
+
 export function App() {
   const [activeScenario, setActiveScenario] = React.useState<string>('travel');
   const [log, setLog] = React.useState<string[]>([]);
   const [hypotheticalQuery, setHypotheticalQuery] = React.useState<string | null>(null);
   const [versionWarning, setVersionWarning] = React.useState<string | null>(null);
+  const [isLive, setIsLive] = React.useState(false);
 
   const { currentIntent, commitModifications, modifyParameter } = useIntentStore();
   const { densityOverride, setHypotheticalMode } = useUIStore();
@@ -92,6 +108,28 @@ export function App() {
       prevStateRef.current = connectionState;
     }
   }, [connectionState, addLog]);
+
+  // ── Live updates ───────────────────────────────────────────────────────────
+  // Stop live updates whenever the active scenario changes; the toggle button
+  // resets so the user must opt back in for the new scenario.
+  React.useEffect(() => {
+    bridge.stopLiveUpdates();
+    setIsLive(false);
+  }, [activeScenario, bridge]);
+
+  const handleLiveToggle = React.useCallback(() => {
+    if (isLive) {
+      bridge.stopLiveUpdates();
+      setIsLive(false);
+      addLog('[simulate] Live updates stopped');
+    } else {
+      const factory = LIVE_MUTATORS[activeScenario];
+      if (!factory) return;
+      bridge.startLiveUpdates(LIVE_UPDATE_INTERVAL_MS, factory());
+      setIsLive(true);
+      addLog(`[simulate] Live updates started (${LIVE_UPDATE_INTERVAL_MS} ms interval)`);
+    }
+  }, [isLive, activeScenario, bridge, addLog]);
 
   // ── Scenario loading ───────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -190,8 +228,35 @@ export function App() {
           ))}
         </div>
 
-        {/* Right side: connection badge + density selector */}
+        {/* Right side: live sim + connection badge + density selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {LIVE_MUTATORS[activeScenario] && (
+            <button
+              onClick={handleLiveToggle}
+              title={isLive ? 'Stop live simulation' : 'Start live data simulation — bridge pushes updated intents every 2 s'}
+              style={{
+                padding: '0.375rem 0.75rem',
+                borderRadius: '0.375rem',
+                border: `1px solid ${isLive ? '#22c55e' : '#334155'}`,
+                backgroundColor: isLive ? '#052e16' : '#1e293b',
+                color: isLive ? '#86efac' : '#94a3b8',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.72rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+            >
+              <span style={{
+                width: '7px', height: '7px', borderRadius: '50%',
+                backgroundColor: isLive ? '#22c55e' : '#475569',
+                display: 'inline-block',
+                animation: isLive ? 'pulse 1.4s ease-in-out infinite' : 'none',
+              }} />
+              {isLive ? 'Stop Sim' : 'Simulate'}
+            </button>
+          )}
           <ConnectionBadge state={connectionState} />
           {compiled && <DensitySelector agentRecommended={compiled.density} />}
         </div>
@@ -343,6 +408,19 @@ export function App() {
       </main>
     </div>
   );
+}
+
+// ─── Global styles ────────────────────────────────────────────────────────────
+
+// Inject pulse keyframe once into the document head for the live-sim indicator.
+if (typeof document !== 'undefined') {
+  const id = 'hari-pulse-style';
+  if (!document.getElementById(id)) {
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }`;
+    document.head.appendChild(style);
+  }
 }
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
