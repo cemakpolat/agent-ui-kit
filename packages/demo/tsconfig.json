@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@hari/core": ["../core/src/index.ts"],
+      "@hari/ui": ["../ui/src/index.ts"]
+    }
+  },
+  "include": ["src", "../core/src", "../ui/src"]
+}

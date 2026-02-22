@@ -1,0 +1,24 @@
+{
+  "name": "@hari/core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "HARI core: intent schemas, intent compiler, and state stores",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "immer": "^10.1.1",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  }
+}
