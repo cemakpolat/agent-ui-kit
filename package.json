@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @hari/demo dev",
     "build": "pnpm --filter @hari/core build && pnpm --filter @hari/ui build && pnpm --filter @hari/demo build",
+    "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "clean": "pnpm -r clean"
