@@ -3,6 +3,7 @@ export * from './schemas/ambiguity';
 export * from './schemas/action';
 export * from './schemas/explainability';
 export * from './schemas/intent';
+export * from './schemas/document';
 
 // Compiler
 export * from './compiler/registry';
@@ -15,3 +16,6 @@ export * from './store/ui';
 
 // Transport
 export * from './transport/index';
+
+// Telemetry
+export * from './telemetry/index';

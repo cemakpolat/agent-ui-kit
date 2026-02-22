@@ -7,6 +7,7 @@ import {
   checkSchemaVersion,
   buildCapabilityManifest,
   MockAgentBridge,
+  telemetry,
 } from '@hari/core';
 import type { IntentPayloadInput } from '@hari/core';
 import {
@@ -20,6 +21,10 @@ import { registry } from './registry';
 import { travelIntent } from './scenarios/travel';
 import { cloudopsIntent } from './scenarios/cloudops';
 import { iotIntent } from './scenarios/iot';
+import { documentIntent } from './scenarios/document';
+
+// Enable telemetry — all events are echoed to the Negotiation Log via subscribe().
+telemetry.enable();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Demo Application — HARI v0.1
@@ -39,11 +44,12 @@ const SCENARIOS: Record<string, { label: string; intent: IntentPayloadInput; emo
   travel:   { label: 'Travel',   emoji: '✈', intent: travelIntent   },
   cloudops: { label: 'CloudOps', emoji: '🖥', intent: cloudopsIntent },
   iot:      { label: 'IoT',      emoji: '📡', intent: iotIntent      },
+  document: { label: 'Document', emoji: '📄', intent: documentIntent },
 };
 
 // Registered domains/intent-types for capability manifest
-const REGISTERED_DOMAINS = ['travel', 'cloudops', 'iot'];
-const REGISTERED_INTENT_TYPES = ['comparison', 'diagnostic_overview', 'sensor_overview'];
+const REGISTERED_DOMAINS = ['travel', 'cloudops', 'iot', 'reports'];
+const REGISTERED_INTENT_TYPES = ['comparison', 'diagnostic_overview', 'sensor_overview', 'document'];
 
 const capabilityManifest = buildCapabilityManifest(
   REGISTERED_DOMAINS,
@@ -62,6 +68,13 @@ export function App() {
   const addLog = React.useCallback((msg: string) =>
     setLog((prev) => [`${new Date().toLocaleTimeString()} ${msg}`, ...prev].slice(0, 50))
   , []);
+
+  // Forward telemetry events to the negotiation log.
+  React.useEffect(() => {
+    return telemetry.subscribe((event) => {
+      addLog(`[telemetry] ${event.type}`);
+    });
+  }, [addLog]);
 
   // ── Transport bridge (stable identity across renders) ─────────────────────
   const bridge = React.useMemo(
@@ -321,7 +334,9 @@ export function App() {
               <li>queryWhatIf → HypotheticalOverlay (bridge or fallback)</li>
               <li>useMemo resolution — component + data always in sync</li>
               <li>Two stores: Intent (committed) + UI (ephemeral)</li>
-              <li>IoT = new domain with zero compiler changes</li>
+              <li>IoT / Document = new domains with zero compiler changes</li>
+              <li>Telemetry: opt-in singleton, events in Negotiation Log</li>
+              <li>MCPAgentBridge: JSON-RPC 2.0 over WebSocket (Phase 4)</li>
             </ul>
           </Panel>
         </div>

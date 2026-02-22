@@ -6,6 +6,7 @@ import {
   FlightCardExpert,
   MetricCard,
   SensorCard,
+  DocumentRenderer,
   type FlightOption,
   type MetricData,
   type SensorReading,
@@ -178,6 +179,39 @@ const LazyFlightListOperator = React.lazy(() =>
 
 registry.register('travel', 'comparison_lazy', {
   default: () => LazyFlightListOperator,
+});
+
+// ── Reports / document ────────────────────────────────────────────────────────
+// Living document: AI-generated rich text with sections, callouts, metrics,
+// code blocks, and per-section confidence indicators.
+//
+// DocumentRenderer reads the 'show-confidence' ambiguity control value and the
+// 'report-depth' selection via its showConfidence and density props.
+
+interface DocumentWrapperProps {
+  data: unknown;
+  density: 'executive' | 'operator' | 'expert';
+  onExplain?: (id: string) => void;
+  // Passed through from the ambiguity control value
+  showConfidence?: boolean;
+}
+
+function DocumentWrapper({ data, density, onExplain, showConfidence = true }: DocumentWrapperProps) {
+  return (
+    <DocumentRenderer
+      data={data}
+      density={density}
+      onExplain={onExplain}
+      showConfidence={showConfidence}
+    />
+  );
+}
+
+registry.register('reports', 'document', {
+  executive: () => DocumentWrapper,
+  operator:  () => DocumentWrapper,
+  expert:    () => DocumentWrapper,
+  default:   () => DocumentWrapper,
 });
 
 // ── Generic fallback (already handled by IntentRenderer, but here for doc purposes) ──

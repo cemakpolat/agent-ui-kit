@@ -30,3 +30,6 @@ export type { NdjsonChunkResult } from './streaming';
 
 export { adaptIntentPayload, adaptWithVersionCheck } from './adapter';
 export type { RawPayload, AdaptResult } from './adapter';
+
+export { MCPAgentBridge } from './mcp';
+export type { MCPTransportOptions } from './mcp';

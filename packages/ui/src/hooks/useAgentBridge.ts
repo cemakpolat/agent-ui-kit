@@ -15,7 +15,7 @@
 
 import React from 'react';
 import type { AgentBridge, ConnectionState } from '@hari/core';
-import { useIntentStore } from '@hari/core';
+import { useIntentStore, telemetry } from '@hari/core';
 import type { CapabilityManifest, IntentModification } from '@hari/core';
 
 export interface UseAgentBridgeResult {
@@ -44,11 +44,31 @@ export function useAgentBridge(
     let alive = true;
 
     const unsubState = bridge.on('stateChange', (state) => {
-      if (alive) setConnectionState(state);
+      if (!alive) return;
+      setConnectionState(state);
+      if (state === 'connected') {
+        telemetry.emit({
+          type: 'bridge:connected',
+          transportType: bridge.constructor.name,
+        });
+      } else if (state === 'disconnected') {
+        telemetry.emit({ type: 'bridge:disconnected' });
+      } else if (state === 'reconnecting') {
+        telemetry.emit({ type: 'bridge:reconnecting', attempt: 1 });
+      }
     });
 
     const unsubIntent = bridge.on('intent', (intent) => {
-      if (alive) setIntent(intent);
+      if (!alive) return;
+      setIntent(intent);
+      telemetry.emit({
+        type: 'intent:received',
+        domain: intent.domain,
+        intentType: intent.type,
+        confidence: intent.confidence,
+        ambiguityCount: intent.ambiguities.length,
+        actionCount: intent.actions.length,
+      });
     });
 
     // Connect and send capability manifest when ready
