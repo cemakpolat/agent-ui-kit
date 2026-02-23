@@ -154,6 +154,10 @@ export const DocumentSectionSchema = z.object({
    * IntentPayload.explainability map.
    */
   explainElementId: z.string().optional(),
+  /** Whether this section can be collapsed by the user. */
+  collapsible: z.boolean().default(false),
+  /** Initial collapsed state when collapsible is true. */
+  defaultCollapsed: z.boolean().default(false),
 });
 
 export type DocumentSection = z.infer<typeof DocumentSectionSchema>;

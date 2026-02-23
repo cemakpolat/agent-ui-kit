@@ -365,6 +365,7 @@ function TableBlock({
 }) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [filter, setFilter] = useState('');
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -375,8 +376,15 @@ function TableBlock({
     }
   };
 
+  const query = filter.toLowerCase().trim();
+  const filteredRows = query
+    ? rows.filter((row) =>
+        headers.some((h) => String(row[h.key] ?? '').toLowerCase().includes(query))
+      )
+    : rows;
+
   const sortedRows = sortKey
-    ? [...rows].sort((a, b) => {
+    ? [...filteredRows].sort((a, b) => {
         const av = a[sortKey];
         const bv = b[sortKey];
         const an = typeof av === 'number' ? av : parseFloat(String(av ?? ''));
@@ -388,10 +396,32 @@ function TableBlock({
         const bs = String(bv ?? '').toLowerCase();
         return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
       })
-    : rows;
+    : filteredRows;
 
   return (
-    <div style={{ margin: '0.75rem 0', overflowX: 'auto' }}>
+    <div style={{ margin: '0.75rem 0' }}>
+      {rows.length > 4 && (
+        <div style={{ marginBottom: '0.5rem' }}>
+          <input
+            type="search"
+            placeholder="Filter rows…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label="Filter table rows"
+            style={{
+              width: '100%',
+              padding: '0.35rem 0.625rem',
+              fontSize: '0.75rem',
+              border: '1px solid #cbd5e1',
+              borderRadius: '0.375rem',
+              outline: 'none',
+              color: '#374151',
+              backgroundColor: 'white',
+            }}
+          />
+        </div>
+      )}
+    <div style={{ overflowX: 'auto' }}>
       <table style={{
         width: '100%',
         borderCollapse: 'collapse',
@@ -445,6 +475,12 @@ function TableBlock({
           ))}
         </tbody>
       </table>
+    </div>
+      {filter && sortedRows.length === 0 && (
+        <div style={{ fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center', padding: '0.75rem 0' }}>
+          No rows match "{filter}"
+        </div>
+      )}
       {caption && (
         <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.375rem', textAlign: 'center', fontStyle: 'italic' }}>
           {caption}
@@ -462,21 +498,78 @@ function ImageBlock({
   caption?: string;
   width?: number | string;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
     <div style={{ margin: '0.75rem 0', textAlign: 'center' }}>
       <img
         src={src}
         alt={alt}
+        onClick={() => setOpen(true)}
         style={{
           maxWidth: '100%',
           width: width ?? 'auto',
           borderRadius: '0.5rem',
           border: '1px solid #e2e8f0',
+          cursor: 'zoom-in',
+          transition: 'opacity 0.15s',
         }}
+        title="Click to expand"
       />
       {caption && (
         <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.375rem', fontStyle: 'italic' }}>
           {caption}
+        </div>
+      )}
+
+      {/* Lightbox overlay */}
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={alt}
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={src}
+            alt={alt}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw', maxHeight: '90vh',
+              borderRadius: '0.5rem',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
+              cursor: 'default',
+            }}
+          />
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close lightbox"
+            style={{
+              position: 'absolute', top: '1rem', right: '1.25rem',
+              background: 'none', border: 'none',
+              color: 'white', fontSize: '1.5rem', cursor: 'pointer',
+              lineHeight: 1, opacity: 0.8,
+            }}
+          >
+            ✕
+          </button>
+          {caption && (
+            <div style={{
+              position: 'absolute', bottom: '1.25rem', left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)',
+              fontStyle: 'italic', textAlign: 'center',
+              maxWidth: '80vw',
+            }}>
+              {caption}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -814,7 +907,9 @@ function SectionBlock({
   onExplain?: (id: string) => void;
   density: 'executive' | 'operator' | 'expert';
 }) {
+  const [collapsed, setCollapsed] = useState(section.defaultCollapsed ?? false);
   const lowConf = section.confidence !== undefined && section.confidence < 0.70;
+  const isCollapsible = section.collapsible && !!section.title;
 
   // In executive density, skip sections without titles (decorative dividers etc.)
   if (density === 'executive' && !section.title && section.blocks.every((b) => b.type === 'divider')) {
@@ -826,16 +921,35 @@ function SectionBlock({
       {section.title && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
-          marginBottom: '0.5rem',
+          marginBottom: collapsed ? 0 : '0.5rem',
           borderBottom: '1px solid #f1f5f9',
           paddingBottom: '0.25rem',
         }}>
-          <h3 style={{
-            margin: 0,
-            fontSize: '0.875rem',
-            fontWeight: 700,
-            color: '#1e293b',
-          }}>
+          {isCollapsible && (
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? `Expand ${section.title}` : `Collapse ${section.title}`}
+              style={{
+                background: 'none', border: 'none', padding: 0,
+                cursor: 'pointer', fontSize: '0.7rem', color: '#94a3b8',
+                lineHeight: 1, flexShrink: 0,
+              }}
+            >
+              {collapsed ? '▶' : '▼'}
+            </button>
+          )}
+          <h3
+            onClick={isCollapsible ? () => setCollapsed((c) => !c) : undefined}
+            style={{
+              margin: 0,
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              color: '#1e293b',
+              cursor: isCollapsible ? 'pointer' : 'default',
+              userSelect: 'none',
+            }}
+          >
             {section.title}
           </h3>
           {section.confidence !== undefined && showConfidence && (
@@ -865,9 +979,11 @@ function SectionBlock({
           )}
         </div>
       )}
-      <div>
-        {section.blocks.map((block, i) => renderBlock(block, i, showConfidence))}
-      </div>
+      {!collapsed && (
+        <div>
+          {section.blocks.map((block, i) => renderBlock(block, i, showConfidence))}
+        </div>
+      )}
     </div>
   );
 }

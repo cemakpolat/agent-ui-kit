@@ -430,6 +430,83 @@ function FieldRenderer({ field, value, error, isValidating, onChange, onBlur }: 
   );
 }
 
+// ── File field with preview ───────────────────────────────────────────────────
+
+function FileField({
+  field, onChange, onBlur, commonInputStyles, fieldId,
+}: {
+  field: Extract<FormField, { type: 'file' }>;
+  onChange: (value: unknown) => void;
+  onBlur: () => void;
+  commonInputStyles: React.CSSProperties;
+  fieldId: string;
+}) {
+  const [previews, setPreviews] = useState<Array<{ name: string; url: string; isImage: boolean }>>([]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    onChange(files);
+
+    if (field.showPreview && files) {
+      const list = Array.from(files).map((f) => ({
+        name: f.name,
+        url: URL.createObjectURL(f),
+        isImage: f.type.startsWith('image/'),
+      }));
+      // Revoke old object URLs
+      setPreviews((old) => {
+        old.forEach((p) => URL.revokeObjectURL(p.url));
+        return list;
+      });
+    }
+  };
+
+  return (
+    <div>
+      <input
+        id={fieldId}
+        type="file"
+        onChange={handleChange}
+        onBlur={onBlur}
+        disabled={field.disabled}
+        accept={field.accept?.join(',')}
+        multiple={field.multiple}
+        style={{ ...commonInputStyles, padding: '0.375rem 0.5rem', fontSize: '0.8rem' }}
+      />
+      {field.showPreview && previews.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+          {previews.map((p, i) => (
+            <div key={i} style={{
+              border: '1px solid #e2e8f0', borderRadius: '0.375rem',
+              overflow: 'hidden', fontSize: '0.7rem', color: '#64748b',
+              maxWidth: '120px',
+            }}>
+              {p.isImage ? (
+                <img
+                  src={p.url}
+                  alt={p.name}
+                  style={{ width: '120px', height: '80px', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div style={{
+                  width: '120px', height: '80px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: '#f8fafc', fontSize: '1.5rem',
+                }}>
+                  📄
+                </div>
+              )}
+              <div style={{ padding: '0.25rem 0.375rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {p.name}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function renderFieldInput(
   field: FormField,
   value: unknown,
@@ -602,22 +679,7 @@ function renderFieldInput(
       );
 
     case 'file':
-      return (
-        <input
-          id={fieldId}
-          type="file"
-          onChange={(e) => onChange(e.target.files)}
-          onBlur={onBlur}
-          disabled={field.disabled}
-          accept={field.accept?.join(',')}
-          multiple={field.multiple}
-          style={{
-            ...commonInputStyles,
-            padding: '0.375rem 0.5rem',
-            fontSize: '0.8rem',
-          }}
-        />
-      );
+      return <FileField field={field} onChange={onChange} onBlur={onBlur} commonInputStyles={commonInputStyles} fieldId={fieldId} />;
 
     case 'slider':
       return (
