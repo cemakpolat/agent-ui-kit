@@ -31,6 +31,18 @@ export type { DocumentRendererProps } from './components/DocumentRenderer';
 export { FormRenderer } from './components/FormRenderer';
 export type { FormRendererProps } from './components/FormRenderer';
 
+// Domain components — timeline
+export { TimelineRenderer } from './components/TimelineRenderer';
+export type { TimelineRendererProps } from './components/TimelineRenderer';
+
+// Domain components — workflow
+export { WorkflowRenderer } from './components/WorkflowRenderer';
+export type { WorkflowRendererProps } from './components/WorkflowRenderer';
+
+// Domain components — kanban
+export { KanbanRenderer } from './components/KanbanRenderer';
+export type { KanbanRendererProps } from './components/KanbanRenderer';
+
 // Hooks
 export { useAgentBridge } from './hooks/useAgentBridge';
 export type { UseAgentBridgeResult } from './hooks/useAgentBridge';

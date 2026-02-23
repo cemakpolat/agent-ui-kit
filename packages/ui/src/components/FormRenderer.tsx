@@ -17,7 +17,7 @@
 //   registry.register('deployment', 'form', { default: () => FormWrapper });
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { FormField, FormSection, ValidationRule } from '@hari/core';
 
 // ── Public props ──────────────────────────────────────────────────────────────
@@ -39,6 +39,29 @@ export interface FormRendererProps {
   submitButtonLabel?: string;
   /** Whether form is currently submitting */
   isSubmitting?: boolean;
+  /**
+   * Async validators keyed by field id.
+   * Called after sync validation passes on blur.
+   * Return null for valid, or an error string.
+   */
+  asyncValidators?: Record<string, (value: unknown) => Promise<string | null>>;
+  /**
+   * Server-returned validation errors (e.g. from FormValidationResponse).
+   * Field errors are merged with client-side errors; globalError is shown
+   * as a banner above the submit button. Both reset on the next user edit.
+   */
+  serverErrors?: {
+    fieldErrors?: Record<string, string>;
+    globalError?: string;
+  };
+  /**
+   * Rate-limit repeated submissions.
+   * Blocks submit when maxAttempts have been made within the last windowMs ms.
+   */
+  rateLimit?: {
+    maxAttempts: number;
+    windowMs: number;
+  };
 }
 
 // ── Validation helpers ────────────────────────────────────────────────────────
@@ -116,10 +139,19 @@ export function FormRenderer({
   showSubmitButton = true,
   submitButtonLabel = 'Submit',
   isSubmitting = false,
+  asyncValidators = {},
+  serverErrors,
+  rateLimit,
 }: FormRendererProps) {
   const [values, setValues] = useState<Record<string, unknown>>(initialValues);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>(serverErrors?.fieldErrors ?? {});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [validating, setValidating] = useState<Record<string, boolean>>({});
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  // Track pending async calls so stale results are discarded
+  const asyncSeq = useRef<Record<string, number>>({});
+  // Track submission timestamps for rate limiting
+  const submitTimestamps = useRef<number[]>([]);
 
   // Initialize with default values
   useEffect(() => {
@@ -141,9 +173,12 @@ export function FormRenderer({
       const newValues = { ...values, [fieldId]: value };
       setValues(newValues);
       onChange?.(newValues);
+      // Clear rate-limit error on any change
+      setRateLimitError(null);
 
       // Validate on change if field was touched
       if (touched[fieldId]) {
+        // Prefer client error; clear server error for this field on edit
         const error = validateField(value, field);
         setErrors((prev) => ({
           ...prev,
@@ -157,18 +192,48 @@ export function FormRenderer({
   const handleFieldBlur = useCallback(
     (fieldId: string, field: FormField) => {
       setTouched((prev) => ({ ...prev, [fieldId]: true }));
-      const error = validateField(values[fieldId], field);
-      setErrors((prev) => ({
-        ...prev,
-        [fieldId]: error || '',
-      }));
+      const syncError = validateField(values[fieldId], field);
+      setErrors((prev) => ({ ...prev, [fieldId]: syncError || '' }));
+
+      // Run async validator only when sync validation passes
+      if (!syncError && asyncValidators[fieldId]) {
+        const seq = (asyncSeq.current[fieldId] ?? 0) + 1;
+        asyncSeq.current[fieldId] = seq;
+        setValidating((prev) => ({ ...prev, [fieldId]: true }));
+        asyncValidators[fieldId](values[fieldId]).then((asyncError) => {
+          // Discard if a newer call has been triggered
+          if (asyncSeq.current[fieldId] !== seq) return;
+          setValidating((prev) => ({ ...prev, [fieldId]: false }));
+          if (asyncError) setErrors((prev) => ({ ...prev, [fieldId]: asyncError }));
+        }).catch(() => {
+          if (asyncSeq.current[fieldId] !== seq) return;
+          setValidating((prev) => ({ ...prev, [fieldId]: false }));
+        });
+      }
     },
-    [values]
+    [values, asyncValidators]
   );
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+
+      // Rate limiting
+      if (rateLimit) {
+        const now = Date.now();
+        submitTimestamps.current = submitTimestamps.current.filter(
+          (ts) => now - ts < rateLimit.windowMs,
+        );
+        if (submitTimestamps.current.length >= rateLimit.maxAttempts) {
+          const oldest = submitTimestamps.current[0];
+          const waitSec = Math.ceil((rateLimit.windowMs - (now - oldest)) / 1000);
+          setRateLimitError(`Too many attempts. Please wait ${waitSec}s before retrying.`);
+          return;
+        }
+        submitTimestamps.current.push(now);
+      }
+
+      setRateLimitError(null);
 
       // Validate all fields
       const newErrors: Record<string, string> = {};
@@ -179,13 +244,20 @@ export function FormRenderer({
         });
       });
 
+      // Merge server-side field errors for untouched fields
+      if (serverErrors?.fieldErrors) {
+        Object.entries(serverErrors.fieldErrors).forEach(([fieldId, msg]) => {
+          if (!newErrors[fieldId]) newErrors[fieldId] = msg;
+        });
+      }
+
       setErrors(newErrors);
 
       if (Object.keys(newErrors).length === 0) {
         onSubmit?.(values);
       }
     },
-    [sections, values, onSubmit]
+    [sections, values, onSubmit, rateLimit, serverErrors]
   );
 
   // Check if field should be visible based on conditional visibility
@@ -207,6 +279,7 @@ export function FormRenderer({
           values={values}
           errors={errors}
           touched={touched}
+          validating={validating}
           onFieldChange={handleFieldChange}
           onFieldBlur={handleFieldBlur}
           isFieldVisible={isFieldVisible}
@@ -215,18 +288,48 @@ export function FormRenderer({
 
       {showSubmitButton && (
         <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          {/* Server-level global error */}
+          {serverErrors?.globalError && (
+            <div role="alert" style={{
+              marginBottom: '0.75rem',
+              padding: '0.625rem 0.875rem',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fca5a5',
+              borderRadius: '0.375rem',
+              fontSize: '0.8rem',
+              color: '#991b1b',
+            }}>
+              {serverErrors.globalError}
+            </div>
+          )}
+
+          {/* Rate-limit error */}
+          {rateLimitError && (
+            <div role="alert" style={{
+              marginBottom: '0.75rem',
+              padding: '0.625rem 0.875rem',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fcd34d',
+              borderRadius: '0.375rem',
+              fontSize: '0.8rem',
+              color: '#92400e',
+            }}>
+              {rateLimitError}
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !!rateLimitError}
             style={{
               padding: '0.625rem 1.5rem',
-              backgroundColor: isSubmitting ? '#94a3b8' : '#4f46e5',
+              backgroundColor: isSubmitting || rateLimitError ? '#94a3b8' : '#4f46e5',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               fontSize: '0.875rem',
               fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              cursor: isSubmitting || rateLimitError ? 'not-allowed' : 'pointer',
               transition: 'background-color 0.2s',
             }}
           >
@@ -245,6 +348,7 @@ interface FormSectionRendererProps {
   values: Record<string, unknown>;
   errors: Record<string, string>;
   touched: Record<string, boolean>;
+  validating: Record<string, boolean>;
   onFieldChange: (fieldId: string, value: unknown, field: FormField) => void;
   onFieldBlur: (fieldId: string, field: FormField) => void;
   isFieldVisible: (field: FormField) => boolean;
@@ -255,6 +359,7 @@ function FormSectionRenderer({
   values,
   errors,
   touched,
+  validating,
   onFieldChange,
   onFieldBlur,
   isFieldVisible,
@@ -305,13 +410,24 @@ function FormSectionRenderer({
       )}
 
       {(!section.collapsible || !collapsed) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div
+          style={
+            section.columns && section.columns > 1
+              ? {
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${section.columns}, 1fr)`,
+                  gap: '1rem',
+                }
+              : { display: 'flex', flexDirection: 'column', gap: '1rem' }
+          }
+        >
           {visibleFields.map((field) => (
             <FieldRenderer
               key={field.id}
               field={field}
               value={values[field.id]}
               error={touched[field.id] ? errors[field.id] : undefined}
+              isValidating={!!validating[field.id]}
               onChange={(value) => onFieldChange(field.id, value, field)}
               onBlur={() => onFieldBlur(field.id, field)}
             />
@@ -328,11 +444,12 @@ interface FieldRendererProps {
   field: FormField;
   value: unknown;
   error?: string;
+  isValidating?: boolean;
   onChange: (value: unknown) => void;
   onBlur: () => void;
 }
 
-function FieldRenderer({ field, value, error, onChange, onBlur }: FieldRendererProps) {
+function FieldRenderer({ field, value, error, isValidating, onChange, onBlur }: FieldRendererProps) {
   const fieldId = `field-${field.id}`;
   const hasError = !!error;
 
@@ -381,16 +498,99 @@ function FieldRenderer({ field, value, error, onChange, onBlur }: FieldRendererP
 
       {renderFieldInput(field, value, onChange, onBlur, fieldId, commonInputStyles)}
 
-      {field.helpText && !hasError && (
+      {field.helpText && !hasError && !isValidating && (
         <p style={{ margin: '0.25rem 0 0', fontSize: '0.7rem', color: '#94a3b8' }}>
           {field.helpText}
         </p>
       )}
 
-      {hasError && (
+      {isValidating && (
+        <p style={{ margin: '0.25rem 0 0', fontSize: '0.7rem', color: '#6366f1', fontWeight: 500 }}>
+          Validating…
+        </p>
+      )}
+
+      {hasError && !isValidating && (
         <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#ef4444', fontWeight: 500 }}>
           {error}
         </p>
+      )}
+    </div>
+  );
+}
+
+// ── File field with preview ───────────────────────────────────────────────────
+
+function FileField({
+  field, onChange, onBlur, commonInputStyles, fieldId,
+}: {
+  field: Extract<FormField, { type: 'file' }>;
+  onChange: (value: unknown) => void;
+  onBlur: () => void;
+  commonInputStyles: React.CSSProperties;
+  fieldId: string;
+}) {
+  const [previews, setPreviews] = useState<Array<{ name: string; url: string; isImage: boolean }>>([]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    onChange(files);
+
+    if (field.showPreview && files) {
+      const list = Array.from(files).map((f) => ({
+        name: f.name,
+        url: URL.createObjectURL(f),
+        isImage: f.type.startsWith('image/'),
+      }));
+      // Revoke old object URLs
+      setPreviews((old) => {
+        old.forEach((p) => URL.revokeObjectURL(p.url));
+        return list;
+      });
+    }
+  };
+
+  return (
+    <div>
+      <input
+        id={fieldId}
+        type="file"
+        onChange={handleChange}
+        onBlur={onBlur}
+        disabled={field.disabled}
+        accept={field.accept?.join(',')}
+        multiple={field.multiple}
+        style={{ ...commonInputStyles, padding: '0.375rem 0.5rem', fontSize: '0.8rem' }}
+      />
+      {field.showPreview && previews.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+          {previews.map((p, i) => (
+            <div key={i} style={{
+              border: '1px solid #e2e8f0', borderRadius: '0.375rem',
+              overflow: 'hidden', fontSize: '0.7rem', color: '#64748b',
+              maxWidth: '120px',
+            }}>
+              {p.isImage ? (
+                <img
+                  src={p.url}
+                  alt={p.name}
+                  style={{ width: '120px', height: '80px', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div style={{
+                  width: '120px', height: '80px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: '#f8fafc', fontSize: '1.5rem',
+                }}>
+                  📄
+                </div>
+              )}
+              <div style={{ padding: '0.25rem 0.375rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {p.name}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -568,22 +768,7 @@ function renderFieldInput(
       );
 
     case 'file':
-      return (
-        <input
-          id={fieldId}
-          type="file"
-          onChange={(e) => onChange(e.target.files)}
-          onBlur={onBlur}
-          disabled={field.disabled}
-          accept={field.accept?.join(',')}
-          multiple={field.multiple}
-          style={{
-            ...commonInputStyles,
-            padding: '0.375rem 0.5rem',
-            fontSize: '0.8rem',
-          }}
-        />
-      );
+      return <FileField field={field} onChange={onChange} onBlur={onBlur} commonInputStyles={commonInputStyles} fieldId={fieldId} />;
 
     case 'slider':
       return (
