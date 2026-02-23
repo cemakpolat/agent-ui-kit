@@ -6,6 +6,8 @@ export * from './schemas/intent';
 export * from './schemas/document';
 export * from './schemas/form';
 export * from './schemas/timeline';
+export * from './schemas/workflow';
+export * from './schemas/kanban';
 
 // Compiler
 export * from './compiler/registry';

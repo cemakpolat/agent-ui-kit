@@ -9,10 +9,14 @@ import {
   DocumentRenderer,
   FormRenderer,
   TimelineRenderer,
+  WorkflowRenderer,
+  KanbanRenderer,
   type FlightOption,
   type MetricData,
   type SensorReading,
   type TimelineRendererProps,
+  type WorkflowRendererProps,
+  type KanbanRendererProps,
 } from '@hari/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -305,6 +309,83 @@ registry.register('ops', 'timeline', {
 // Also register under generic domain so any intent with type 'timeline' works
 registry.register(GENERIC_DOMAIN, 'timeline', {
   default: () => TimelineWrapper,
+});
+
+// ── Workflow intent type ──────────────────────────────────────────────────────
+// Multi-step guided process: onboarding, configuration wizards, approval flows.
+
+interface WorkflowWrapperProps extends Omit<WorkflowRendererProps, 'data'> {
+  title?: unknown;
+  steps?: unknown;
+  currentStepIndex?: unknown;
+  allowSkipAhead?: unknown;
+  finishLabel?: unknown;
+  density: 'executive' | 'operator' | 'expert';
+  onExplain?: (id: string) => void;
+}
+
+function WorkflowWrapper({
+  title, steps, currentStepIndex, allowSkipAhead, finishLabel,
+  density, onExplain,
+}: WorkflowWrapperProps) {
+  const handleComplete = (values: Record<string, unknown>) => {
+    console.log('Workflow completed:', values);
+  };
+  return (
+    <WorkflowRenderer
+      data={{ title, steps, currentStepIndex, allowSkipAhead, finishLabel }}
+      density={density}
+      onExplain={onExplain}
+      onComplete={handleComplete}
+    />
+  );
+}
+
+registry.register('onboarding', 'workflow', {
+  executive: () => WorkflowWrapper,
+  operator:  () => WorkflowWrapper,
+  expert:    () => WorkflowWrapper,
+  default:   () => WorkflowWrapper,
+});
+
+registry.register(GENERIC_DOMAIN, 'workflow', {
+  default: () => WorkflowWrapper,
+});
+
+// ── Kanban intent type ────────────────────────────────────────────────────────
+// Task board with columns and cards.
+
+interface KanbanWrapperProps extends Omit<KanbanRendererProps, 'data'> {
+  title?: unknown;
+  columns?: unknown;
+  showCardCount?: unknown;
+  showWipLimits?: unknown;
+  density: 'executive' | 'operator' | 'expert';
+  onExplain?: (id: string) => void;
+}
+
+function KanbanWrapper({
+  title, columns, showCardCount, showWipLimits,
+  density, onExplain,
+}: KanbanWrapperProps) {
+  return (
+    <KanbanRenderer
+      data={{ title, columns, showCardCount, showWipLimits }}
+      density={density}
+      onExplain={onExplain}
+    />
+  );
+}
+
+registry.register('project', 'kanban', {
+  executive: () => KanbanWrapper,
+  operator:  () => KanbanWrapper,
+  expert:    () => KanbanWrapper,
+  default:   () => KanbanWrapper,
+});
+
+registry.register(GENERIC_DOMAIN, 'kanban', {
+  default: () => KanbanWrapper,
 });
 
 // ── Generic fallback (already handled by IntentRenderer, but here for doc purposes) ──
