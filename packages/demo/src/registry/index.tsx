@@ -8,9 +8,11 @@ import {
   SensorCard,
   DocumentRenderer,
   FormRenderer,
+  TimelineRenderer,
   type FlightOption,
   type MetricData,
   type SensorReading,
+  type TimelineRendererProps,
 } from '@hari/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,6 +263,48 @@ function FormWrapper({ formId = 'form', sections = [], density, onExplain }: For
 
 registry.register('deployment', 'form', {
   default: () => FormWrapper,
+});
+
+// ── Timeline intent type ──────────────────────────────────────────────────────
+// Chronological event visualization.
+// IntentRenderer spreads compiledView.data as props, so TimelineWrapper
+// receives TimelineData fields directly (same pattern as DocumentWrapper).
+
+interface TimelineWrapperProps extends Omit<TimelineRendererProps, 'data'> {
+  // TimelineData fields spread by IntentRenderer
+  title?: unknown;
+  events?: unknown;
+  direction?: unknown;
+  showTimestamps?: unknown;
+  groupBy?: unknown;
+  executiveCap?: unknown;
+  density: 'executive' | 'operator' | 'expert';
+  onExplain?: (id: string) => void;
+}
+
+function TimelineWrapper({
+  title, events, direction, showTimestamps, groupBy, executiveCap,
+  density, onExplain,
+}: TimelineWrapperProps) {
+  return (
+    <TimelineRenderer
+      data={{ title, events, direction, showTimestamps, groupBy, executiveCap }}
+      density={density}
+      onExplain={onExplain}
+    />
+  );
+}
+
+registry.register('ops', 'timeline', {
+  executive: () => TimelineWrapper,
+  operator:  () => TimelineWrapper,
+  expert:    () => TimelineWrapper,
+  default:   () => TimelineWrapper,
+});
+
+// Also register under generic domain so any intent with type 'timeline' works
+registry.register(GENERIC_DOMAIN, 'timeline', {
+  default: () => TimelineWrapper,
 });
 
 // ── Generic fallback (already handled by IntentRenderer, but here for doc purposes) ──

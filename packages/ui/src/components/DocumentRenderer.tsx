@@ -16,9 +16,9 @@
 //   where DocumentWrapper reads data.showConfidence from ambiguity controls.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DocumentDataSchema } from '@hari/core';
-import type { DocumentBlock, DocumentSection } from '@hari/core';
+import type { DocumentBlock, DocumentSection, DocumentData } from '@hari/core';
 
 // ── Block error boundary ───────────────────────────────────────────────────────
 
@@ -62,6 +62,101 @@ export interface DocumentRendererProps {
   showConfidence?: boolean;
   /** Show an auto-generated table of contents from section titles. */
   showToc?: boolean;
+  /**
+   * When provided, an "Export .md" button appears in the document header.
+   * Called with the full Markdown representation of the document.
+   */
+  onExportMarkdown?: (markdown: string) => void;
+  /** Show a search input that filters sections containing the query. */
+  showSearch?: boolean;
+}
+
+// ── Markdown export ───────────────────────────────────────────────────────────
+
+function blockToMarkdown(block: DocumentBlock): string {
+  switch (block.type) {
+    case 'heading': {
+      const hashes = '#'.repeat(block.level ?? 2);
+      return `${hashes} ${block.text}\n`;
+    }
+    case 'paragraph':
+      return `${block.text}\n`;
+    case 'list': {
+      const items = block.items.map((item, i) =>
+        block.ordered ? `${i + 1}. ${item}` : `- ${item}`
+      );
+      return items.join('\n') + '\n';
+    }
+    case 'code':
+      return `\`\`\`${block.language ?? ''}\n${block.code}\n\`\`\`\n`;
+    case 'callout':
+      return `> **${block.variant.toUpperCase()}**: ${block.text}\n`;
+    case 'metric':
+      return `**${block.label}**: ${block.value}${block.unit ? ' ' + block.unit : ''}${block.trend ? ` (${block.trend})` : ''}\n`;
+    case 'divider':
+      return '---\n';
+    case 'table': {
+      const header = `| ${block.headers.join(' | ')} |`;
+      const sep = `| ${block.headers.map(() => '---').join(' | ')} |`;
+      const rows = block.rows.map((row) => `| ${row.join(' | ')} |`);
+      return [header, sep, ...rows].join('\n') + '\n';
+    }
+    case 'image':
+      return `![${block.alt ?? ''}](${block.src})${block.caption ? `\n*${block.caption}*` : ''}\n`;
+    case 'quote':
+      return `> ${block.text}${block.author ? `\n>\n> — ${block.author}` : ''}\n`;
+    case 'dataviz':
+      return `*[Chart: ${block.chartType} — ${block.title ?? 'untitled'}]*\n`;
+    default:
+      return '';
+  }
+}
+
+function docToMarkdown(doc: DocumentData): string {
+  const lines: string[] = [];
+  lines.push(`# ${doc.title}\n`);
+  if (doc.author || doc.publishedAt) {
+    const meta: string[] = [];
+    if (doc.author) meta.push(`By ${doc.author}`);
+    if (doc.publishedAt) meta.push(new Date(doc.publishedAt).toLocaleDateString());
+    lines.push(`*${meta.join(' · ')}*\n`);
+  }
+  if (doc.summary) lines.push(`> ${doc.summary}\n`);
+  doc.sections.forEach((section) => {
+    if (section.title) lines.push(`## ${section.title}\n`);
+    section.blocks.forEach((block) => {
+      const md = blockToMarkdown(block);
+      if (md) lines.push(md);
+    });
+  });
+  if (doc.sources && doc.sources.length > 0) {
+    lines.push(`## Sources\n`);
+    doc.sources.forEach((src) => lines.push(`- ${src}`));
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+// ── Search helpers ────────────────────────────────────────────────────────────
+
+function sectionMatchesQuery(section: DocumentSection, query: string): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  if (section.title?.toLowerCase().includes(q)) return true;
+  return section.blocks.some((block) => {
+    switch (block.type) {
+      case 'heading':    return block.text.toLowerCase().includes(q);
+      case 'paragraph':  return block.text.toLowerCase().includes(q);
+      case 'list':       return block.items.some((i) => i.toLowerCase().includes(q));
+      case 'code':       return block.code.toLowerCase().includes(q);
+      case 'callout':    return block.text.toLowerCase().includes(q);
+      case 'quote':      return block.text.toLowerCase().includes(q);
+      case 'table':
+        return block.headers.some((h) => h.toLowerCase().includes(q))
+          || block.rows.some((r) => r.some((c) => c.toLowerCase().includes(q)));
+      default: return false;
+    }
+  });
 }
 
 // ── Callout palette ───────────────────────────────────────────────────────────
@@ -998,7 +1093,10 @@ export function DocumentRenderer({
   onExplain,
   showConfidence = true,
   showToc = false,
+  onExportMarkdown,
+  showSearch = false,
 }: DocumentRendererProps) {
+  const [searchQuery, setSearchQuery] = useState('');
   const result = DocumentDataSchema.safeParse(data);
 
   if (!result.success) {
@@ -1015,10 +1113,16 @@ export function DocumentRenderer({
   const doc = result.data;
 
   // In executive density show only summary + exec-summary section.
-  const visibleSections =
+  const densitySections =
     density === 'executive'
       ? doc.sections.filter((s) => s.id === 'exec-summary' || !s.title)
       : doc.sections;
+
+  // Filter by search query (if showSearch is enabled)
+  const visibleSections = useMemo(() => {
+    if (!showSearch || !searchQuery.trim()) return densitySections;
+    return densitySections.filter((s) => sectionMatchesQuery(s, searchQuery.trim()));
+  }, [densitySections, showSearch, searchQuery]);
 
   const tocSections = visibleSections.filter((s) => !!s.title);
 
@@ -1066,7 +1170,52 @@ export function DocumentRenderer({
             ))}
           </div>
         )}
+        {/* Export button */}
+        {onExportMarkdown && (
+          <button
+            onClick={() => onExportMarkdown(docToMarkdown(doc))}
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.2rem 0.6rem',
+              fontSize: '0.65rem', fontWeight: 600,
+              backgroundColor: 'white', color: '#475569',
+              border: '1px solid #cbd5e1', borderRadius: '0.375rem',
+              cursor: 'pointer',
+            }}
+          >
+            ↓ Export .md
+          </button>
+        )}
       </div>
+
+      {/* Search */}
+      {showSearch && (
+        <div style={{ marginBottom: '1rem', position: 'relative' }}>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search sections…"
+            aria-label="Search document"
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '0.4rem 0.75rem 0.4rem 1.75rem',
+              fontSize: '0.78rem', color: '#0f172a',
+              border: '1px solid #cbd5e1', borderRadius: '0.5rem',
+              outline: 'none', backgroundColor: '#f8fafc',
+            }}
+          />
+          <span style={{
+            position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)',
+            fontSize: '0.75rem', color: '#94a3b8', pointerEvents: 'none',
+          }}>🔍</span>
+          {searchQuery && (
+            <span style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.65rem', color: '#94a3b8' }}>
+              {visibleSections.length} result{visibleSections.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Table of Contents */}
       {showToc && tocSections.length > 1 && (

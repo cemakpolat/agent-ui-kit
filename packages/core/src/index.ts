@@ -5,6 +5,7 @@ export * from './schemas/explainability';
 export * from './schemas/intent';
 export * from './schemas/document';
 export * from './schemas/form';
+export * from './schemas/timeline';
 
 // Compiler
 export * from './compiler/registry';

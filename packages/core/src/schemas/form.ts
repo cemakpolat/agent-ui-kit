@@ -193,6 +193,12 @@ export const FormSectionSchema = z.object({
   collapsible: z.boolean().default(false),
   /** Default collapsed state (only if collapsible) */
   defaultCollapsed: z.boolean().default(false),
+  /**
+   * Number of columns for the field grid in this section.
+   * Fields are laid out left-to-right then wrapped into the next row.
+   * @default 1
+   */
+  columns: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
 });
 
 export type FormSection = z.infer<typeof FormSectionSchema>;

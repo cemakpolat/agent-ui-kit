@@ -31,6 +31,10 @@ export type { DocumentRendererProps } from './components/DocumentRenderer';
 export { FormRenderer } from './components/FormRenderer';
 export type { FormRendererProps } from './components/FormRenderer';
 
+// Domain components — timeline
+export { TimelineRenderer } from './components/TimelineRenderer';
+export type { TimelineRendererProps } from './components/TimelineRenderer';
+
 // Hooks
 export { useAgentBridge } from './hooks/useAgentBridge';
 export type { UseAgentBridgeResult } from './hooks/useAgentBridge';

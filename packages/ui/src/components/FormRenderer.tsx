@@ -410,7 +410,17 @@ function FormSectionRenderer({
       )}
 
       {(!section.collapsible || !collapsed) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div
+          style={
+            section.columns && section.columns > 1
+              ? {
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${section.columns}, 1fr)`,
+                  gap: '1rem',
+                }
+              : { display: 'flex', flexDirection: 'column', gap: '1rem' }
+          }
+        >
           {visibleFields.map((field) => (
             <FieldRenderer
               key={field.id}
