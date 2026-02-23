@@ -60,6 +60,8 @@ export interface DocumentRendererProps {
   onExplain?: (elementId: string) => void;
   /** Control whether per-paragraph/section confidence indicators are shown. */
   showConfidence?: boolean;
+  /** Show an auto-generated table of contents from section titles. */
+  showToc?: boolean;
 }
 
 // ── Callout palette ───────────────────────────────────────────────────────────
@@ -917,7 +919,7 @@ function SectionBlock({
   }
 
   return (
-    <div style={{ marginBottom: '1rem' }}>
+    <div id={`section-${section.id}`} style={{ marginBottom: '1rem' }}>
       {section.title && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -995,6 +997,7 @@ export function DocumentRenderer({
   density = 'operator',
   onExplain,
   showConfidence = true,
+  showToc = false,
 }: DocumentRendererProps) {
   const result = DocumentDataSchema.safeParse(data);
 
@@ -1017,6 +1020,8 @@ export function DocumentRenderer({
       ? doc.sections.filter((s) => s.id === 'exec-summary' || !s.title)
       : doc.sections;
 
+  const tocSections = visibleSections.filter((s) => !!s.title);
+
   return (
     <div>
       {/* Document header */}
@@ -1025,9 +1030,21 @@ export function DocumentRenderer({
         paddingBottom: '0.75rem',
         borderBottom: '2px solid #e2e8f0',
       }}>
-        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
-          {doc.title}
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+            {doc.title}
+          </h2>
+          {doc.refreshable && (
+            <span style={{
+              fontSize: '0.6rem', fontWeight: 700,
+              backgroundColor: '#dcfce7', color: '#166534',
+              border: '1px solid #86efac', borderRadius: '9999px',
+              padding: '0.15rem 0.5rem', whiteSpace: 'nowrap',
+            }}>
+              ⟳ LIVE{doc.refreshInterval ? ` · ${doc.refreshInterval}s` : ''}
+            </span>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '1rem', fontSize: '0.68rem', color: '#64748b', flexWrap: 'wrap' }}>
           {doc.author && <span>By {doc.author}</span>}
           {doc.publishedAt && (
@@ -1035,7 +1052,53 @@ export function DocumentRenderer({
           )}
           {doc.revision && <span>Rev {doc.revision}</span>}
         </div>
+        {doc.tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.375rem' }}>
+            {doc.tags.map((tag) => (
+              <span key={tag} style={{
+                fontSize: '0.6rem', fontWeight: 600,
+                backgroundColor: '#eff6ff', color: '#1d4ed8',
+                border: '1px solid #bfdbfe', borderRadius: '0.25rem',
+                padding: '0.1rem 0.35rem',
+              }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Table of Contents */}
+      {showToc && tocSections.length > 1 && (
+        <nav aria-label="Table of contents" style={{
+          marginBottom: '1.25rem',
+          padding: '0.75rem 1rem',
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '0.5rem',
+          fontSize: '0.75rem',
+        }}>
+          <div style={{ fontWeight: 700, color: '#475569', marginBottom: '0.375rem', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Contents
+          </div>
+          <ol style={{ margin: 0, paddingLeft: '1.25rem', lineHeight: 1.8 }}>
+            {tocSections.map((s, i) => (
+              <li key={s.id}>
+                <a
+                  href={`#section-${s.id}`}
+                  style={{ color: '#4f46e5', textDecoration: 'none', fontSize: '0.75rem' }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(`section-${s.id}`)?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  {i + 1}. {s.title}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
 
       {/* Executive summary prose (if provided and not already a section) */}
       {doc.summary && density !== 'expert' && (
@@ -1064,6 +1127,29 @@ export function DocumentRenderer({
           density={density}
         />
       ))}
+
+      {/* Document footer: sources */}
+      {doc.sources && doc.sources.length > 0 && (
+        <div style={{
+          marginTop: '1.5rem',
+          paddingTop: '0.75rem',
+          borderTop: '1px solid #e2e8f0',
+          fontSize: '0.68rem',
+          color: '#94a3b8',
+        }}>
+          <span style={{ fontWeight: 600, color: '#64748b' }}>Sources: </span>
+          {doc.sources.map((src, i) => (
+            <span key={i}>
+              {src.startsWith('http') ? (
+                <a href={src} target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1' }}>{src}</a>
+              ) : (
+                src
+              )}
+              {i < doc.sources!.length - 1 && ' · '}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

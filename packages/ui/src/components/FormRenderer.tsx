@@ -45,6 +45,23 @@ export interface FormRendererProps {
    * Return null for valid, or an error string.
    */
   asyncValidators?: Record<string, (value: unknown) => Promise<string | null>>;
+  /**
+   * Server-returned validation errors (e.g. from FormValidationResponse).
+   * Field errors are merged with client-side errors; globalError is shown
+   * as a banner above the submit button. Both reset on the next user edit.
+   */
+  serverErrors?: {
+    fieldErrors?: Record<string, string>;
+    globalError?: string;
+  };
+  /**
+   * Rate-limit repeated submissions.
+   * Blocks submit when maxAttempts have been made within the last windowMs ms.
+   */
+  rateLimit?: {
+    maxAttempts: number;
+    windowMs: number;
+  };
 }
 
 // ── Validation helpers ────────────────────────────────────────────────────────
@@ -123,13 +140,18 @@ export function FormRenderer({
   submitButtonLabel = 'Submit',
   isSubmitting = false,
   asyncValidators = {},
+  serverErrors,
+  rateLimit,
 }: FormRendererProps) {
   const [values, setValues] = useState<Record<string, unknown>>(initialValues);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>(serverErrors?.fieldErrors ?? {});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [validating, setValidating] = useState<Record<string, boolean>>({});
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   // Track pending async calls so stale results are discarded
   const asyncSeq = useRef<Record<string, number>>({});
+  // Track submission timestamps for rate limiting
+  const submitTimestamps = useRef<number[]>([]);
 
   // Initialize with default values
   useEffect(() => {
@@ -151,9 +173,12 @@ export function FormRenderer({
       const newValues = { ...values, [fieldId]: value };
       setValues(newValues);
       onChange?.(newValues);
+      // Clear rate-limit error on any change
+      setRateLimitError(null);
 
       // Validate on change if field was touched
       if (touched[fieldId]) {
+        // Prefer client error; clear server error for this field on edit
         const error = validateField(value, field);
         setErrors((prev) => ({
           ...prev,
@@ -193,6 +218,23 @@ export function FormRenderer({
     (e: React.FormEvent) => {
       e.preventDefault();
 
+      // Rate limiting
+      if (rateLimit) {
+        const now = Date.now();
+        submitTimestamps.current = submitTimestamps.current.filter(
+          (ts) => now - ts < rateLimit.windowMs,
+        );
+        if (submitTimestamps.current.length >= rateLimit.maxAttempts) {
+          const oldest = submitTimestamps.current[0];
+          const waitSec = Math.ceil((rateLimit.windowMs - (now - oldest)) / 1000);
+          setRateLimitError(`Too many attempts. Please wait ${waitSec}s before retrying.`);
+          return;
+        }
+        submitTimestamps.current.push(now);
+      }
+
+      setRateLimitError(null);
+
       // Validate all fields
       const newErrors: Record<string, string> = {};
       sections.forEach((section) => {
@@ -202,13 +244,20 @@ export function FormRenderer({
         });
       });
 
+      // Merge server-side field errors for untouched fields
+      if (serverErrors?.fieldErrors) {
+        Object.entries(serverErrors.fieldErrors).forEach(([fieldId, msg]) => {
+          if (!newErrors[fieldId]) newErrors[fieldId] = msg;
+        });
+      }
+
       setErrors(newErrors);
 
       if (Object.keys(newErrors).length === 0) {
         onSubmit?.(values);
       }
     },
-    [sections, values, onSubmit]
+    [sections, values, onSubmit, rateLimit, serverErrors]
   );
 
   // Check if field should be visible based on conditional visibility
@@ -239,18 +288,48 @@ export function FormRenderer({
 
       {showSubmitButton && (
         <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          {/* Server-level global error */}
+          {serverErrors?.globalError && (
+            <div role="alert" style={{
+              marginBottom: '0.75rem',
+              padding: '0.625rem 0.875rem',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fca5a5',
+              borderRadius: '0.375rem',
+              fontSize: '0.8rem',
+              color: '#991b1b',
+            }}>
+              {serverErrors.globalError}
+            </div>
+          )}
+
+          {/* Rate-limit error */}
+          {rateLimitError && (
+            <div role="alert" style={{
+              marginBottom: '0.75rem',
+              padding: '0.625rem 0.875rem',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fcd34d',
+              borderRadius: '0.375rem',
+              fontSize: '0.8rem',
+              color: '#92400e',
+            }}>
+              {rateLimitError}
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !!rateLimitError}
             style={{
               padding: '0.625rem 1.5rem',
-              backgroundColor: isSubmitting ? '#94a3b8' : '#4f46e5',
+              backgroundColor: isSubmitting || rateLimitError ? '#94a3b8' : '#4f46e5',
               color: 'white',
               border: 'none',
               borderRadius: '0.5rem',
               fontSize: '0.875rem',
               fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              cursor: isSubmitting || rateLimitError ? 'not-allowed' : 'pointer',
               transition: 'background-color 0.2s',
             }}
           >
