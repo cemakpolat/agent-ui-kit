@@ -16,9 +16,40 @@
 //   where DocumentWrapper reads data.showConfidence from ambiguity controls.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React from 'react';
+import React, { useState } from 'react';
 import { DocumentDataSchema } from '@hari/core';
 import type { DocumentBlock, DocumentSection } from '@hari/core';
+
+// ── Block error boundary ───────────────────────────────────────────────────────
+
+interface BlockErrorBoundaryState { hasError: boolean; message: string }
+
+class BlockErrorBoundary extends React.Component<
+  { blockType: string; children: React.ReactNode },
+  BlockErrorBoundaryState
+> {
+  constructor(props: { blockType: string; children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, message: error instanceof Error ? error.message : String(error) };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          margin: '0.5rem 0', padding: '0.5rem 0.75rem',
+          backgroundColor: '#fef2f2', border: '1px solid #fca5a5',
+          borderRadius: '0.375rem', fontSize: '0.72rem', color: '#991b1b',
+        }}>
+          Block render error [{this.props.blockType}]: {this.state.message}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── Public props ─────────────────────────────────────────────────────────────
 
@@ -85,42 +116,43 @@ function renderBlock(
   key: number,
   showConfidence: boolean,
 ): React.ReactNode {
+  let inner: React.ReactNode;
   switch (block.type) {
     case 'heading':
-      return (
-        <HeadingBlock key={key} level={block.level} text={block.text} />
-      );
+      inner = <HeadingBlock level={block.level} text={block.text} />;
+      break;
 
     case 'paragraph':
-      return (
+      inner = (
         <ParagraphBlock
-          key={key}
           text={block.text}
           confidence={block.confidence}
           showConfidence={showConfidence}
         />
       );
+      break;
 
     case 'list':
-      return <ListBlock key={key} items={block.items} ordered={block.ordered} />;
+      inner = <ListBlock items={block.items} ordered={block.ordered} />;
+      break;
 
     case 'code':
-      return <CodeBlock key={key} code={block.code} language={block.language} />;
+      inner = <CodeBlock code={block.code} language={block.language} />;
+      break;
 
     case 'callout':
-      return (
+      inner = (
         <CalloutBlock
-          key={key}
           variant={block.variant}
           title={block.title}
           text={block.text}
         />
       );
+      break;
 
     case 'metric':
-      return (
+      inner = (
         <MetricBlock
-          key={key}
           label={block.label}
           value={block.value}
           trend={block.trend}
@@ -128,6 +160,7 @@ function renderBlock(
           unit={block.unit}
         />
       );
+      break;
 
     case 'divider':
       return (
@@ -135,20 +168,34 @@ function renderBlock(
       );
 
     case 'table':
-      return <TableBlock key={key} headers={block.headers} rows={block.rows} caption={block.caption} />;
+      inner = <TableBlock headers={block.headers} rows={block.rows} caption={block.caption} />;
+      break;
 
     case 'image':
-      return <ImageBlock key={key} src={block.src} alt={block.alt} caption={block.caption} width={block.width} />;
+      inner = <ImageBlock src={block.src} alt={block.alt} caption={block.caption} width={block.width} />;
+      break;
 
     case 'quote':
-      return <QuoteBlock key={key} text={block.text} author={block.author} source={block.source} />;
+      inner = <QuoteBlock text={block.text} author={block.author} source={block.source} />;
+      break;
 
     case 'dataviz':
-      return <DataVizBlock key={key} chartType={block.chartType} title={block.title} data={block.data} config={block.config} />;
+      inner = <DataVizBlock chartType={block.chartType} title={block.title} data={block.data} config={block.config} />;
+      break;
 
     case 'embed':
-      return <EmbedBlock key={key} url={block.url} fallbackText={block.fallbackText} height={block.height} />;
+      inner = <EmbedBlock url={block.url} fallbackText={block.fallbackText} height={block.height} />;
+      break;
+
+    default:
+      return null;
   }
+
+  return (
+    <BlockErrorBoundary key={key} blockType={(block as DocumentBlock).type}>
+      {inner}
+    </BlockErrorBoundary>
+  );
 }
 
 function HeadingBlock({ level, text }: { level: number; text: string }) {
@@ -316,6 +363,33 @@ function TableBlock({
   rows: Array<Record<string, unknown>>;
   caption?: string;
 }) {
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedRows = sortKey
+    ? [...rows].sort((a, b) => {
+        const av = a[sortKey];
+        const bv = b[sortKey];
+        const an = typeof av === 'number' ? av : parseFloat(String(av ?? ''));
+        const bn = typeof bv === 'number' ? bv : parseFloat(String(bv ?? ''));
+        if (!isNaN(an) && !isNaN(bn)) {
+          return sortDir === 'asc' ? an - bn : bn - an;
+        }
+        const as = String(av ?? '').toLowerCase();
+        const bs = String(bv ?? '').toLowerCase();
+        return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
+      })
+    : rows;
+
   return (
     <div style={{ margin: '0.75rem 0', overflowX: 'auto' }}>
       <table style={{
@@ -328,22 +402,35 @@ function TableBlock({
         <thead>
           <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
             {headers.map((h) => (
-              <th key={h.key} style={{
-                padding: '0.5rem 0.75rem',
-                textAlign: h.align ?? 'left',
-                fontWeight: 600,
-                color: '#475569',
-                fontSize: '0.7rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}>
+              <th
+                key={h.key}
+                onClick={() => handleSort(h.key)}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  textAlign: h.align ?? 'left',
+                  fontWeight: 600,
+                  color: sortKey === h.key ? '#4f46e5' : '#475569',
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+                aria-sort={sortKey === h.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+              >
                 {h.label}
+                {sortKey === h.key && (
+                  <span style={{ marginLeft: '0.3rem', fontSize: '0.65rem' }}>
+                    {sortDir === 'asc' ? '▲' : '▼'}
+                  </span>
+                )}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
+          {sortedRows.map((row, i) => (
             <tr key={i} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: i % 2 === 0 ? 'white' : '#fafafa' }}>
               {headers.map((h) => (
                 <td key={h.key} style={{
@@ -426,6 +513,205 @@ function QuoteBlock({
   );
 }
 
+// ── SVG chart primitives ──────────────────────────────────────────────────────
+
+const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7'];
+
+function SparklineChart({ data }: { data: Array<{ y: number }> }) {
+  const values = data.map(d => d.y);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'flex-end', gap: '1px', height: '24px' }}>
+      {values.map((v, i) => {
+        const height = ((v - min) / range) * 20 + 4;
+        return (
+          <div key={i} style={{
+            width: '3px', height: `${height}px`,
+            backgroundColor: '#6366f1', borderRadius: '1px',
+          }} />
+        );
+      })}
+    </div>
+  );
+}
+
+function BarChart({
+  data, width = 480, height = 200,
+}: {
+  data: Array<{ x: string | number; y: number; label?: string }>;
+  width?: number;
+  height?: number;
+}) {
+  const pad = { top: 16, right: 16, bottom: 40, left: 44 };
+  const iw = width - pad.left - pad.right;
+  const ih = height - pad.top - pad.bottom;
+  const maxY = Math.max(...data.map(d => d.y), 0);
+  const barW = Math.max(4, iw / data.length - 4);
+
+  const yTicks = 4;
+  const tickStep = maxY / yTicks || 1;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: width, display: 'block' }}>
+      {/* Y grid lines + labels */}
+      {Array.from({ length: yTicks + 1 }, (_, i) => {
+        const val = tickStep * i;
+        const y = pad.top + ih - (val / (maxY || 1)) * ih;
+        return (
+          <g key={i}>
+            <line x1={pad.left} y1={y} x2={pad.left + iw} y2={y}
+              stroke="#e2e8f0" strokeWidth={i === 0 ? 1.5 : 0.75} />
+            <text x={pad.left - 6} y={y + 4} textAnchor="end"
+              fontSize={9} fill="#94a3b8">
+              {val % 1 === 0 ? val : val.toFixed(1)}
+            </text>
+          </g>
+        );
+      })}
+      {/* Bars */}
+      {data.map((d, i) => {
+        const barH = maxY > 0 ? (d.y / maxY) * ih : 0;
+        const x = pad.left + i * (iw / data.length) + (iw / data.length - barW) / 2;
+        const y = pad.top + ih - barH;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH}
+              fill={CHART_COLORS[i % CHART_COLORS.length]}
+              rx={2} opacity={0.85} />
+            <text x={x + barW / 2} y={pad.top + ih + 14} textAnchor="middle"
+              fontSize={9} fill="#64748b">
+              {String(d.label ?? d.x).slice(0, 10)}
+            </text>
+          </g>
+        );
+      })}
+      {/* Axes */}
+      <line x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + ih} stroke="#cbd5e1" strokeWidth={1.5} />
+      <line x1={pad.left} y1={pad.top + ih} x2={pad.left + iw} y2={pad.top + ih} stroke="#cbd5e1" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+function LineChart({
+  data, width = 480, height = 200, filled = false,
+}: {
+  data: Array<{ x: string | number; y: number; label?: string }>;
+  width?: number;
+  height?: number;
+  filled?: boolean;
+}) {
+  const pad = { top: 16, right: 16, bottom: 40, left: 44 };
+  const iw = width - pad.left - pad.right;
+  const ih = height - pad.top - pad.bottom;
+  const maxY = Math.max(...data.map(d => d.y), 0);
+  const minY = Math.min(...data.map(d => d.y), 0);
+  const rangeY = maxY - minY || 1;
+
+  const px = (i: number) => pad.left + (i / (data.length - 1 || 1)) * iw;
+  const py = (v: number) => pad.top + ih - ((v - minY) / rangeY) * ih;
+
+  const pointsStr = data.map((d, i) => `${px(i)},${py(d.y)}`).join(' ');
+  const areaPath = data.length > 1
+    ? `M${px(0)},${py(data[0].y)} ` +
+      data.slice(1).map((d, i) => `L${px(i + 1)},${py(d.y)}`).join(' ') +
+      ` L${px(data.length - 1)},${pad.top + ih} L${px(0)},${pad.top + ih} Z`
+    : '';
+
+  const yTicks = 4;
+  const tickStep = rangeY / yTicks;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: width, display: 'block' }}>
+      {/* Y grid */}
+      {Array.from({ length: yTicks + 1 }, (_, i) => {
+        const val = minY + tickStep * i;
+        const y = py(val);
+        return (
+          <g key={i}>
+            <line x1={pad.left} y1={y} x2={pad.left + iw} y2={y}
+              stroke="#e2e8f0" strokeWidth={i === 0 ? 1.5 : 0.75} />
+            <text x={pad.left - 6} y={y + 4} textAnchor="end" fontSize={9} fill="#94a3b8">
+              {val % 1 === 0 ? Math.round(val) : val.toFixed(1)}
+            </text>
+          </g>
+        );
+      })}
+      {/* X labels */}
+      {data.map((d, i) => (
+        <text key={i} x={px(i)} y={pad.top + ih + 14} textAnchor="middle" fontSize={9} fill="#64748b">
+          {String(d.label ?? d.x).slice(0, 8)}
+        </text>
+      ))}
+      {/* Area fill */}
+      {filled && data.length > 1 && (
+        <path d={areaPath} fill="#6366f1" opacity={0.12} />
+      )}
+      {/* Line */}
+      {data.length > 1 && (
+        <polyline points={pointsStr} fill="none" stroke="#6366f1" strokeWidth={2} strokeLinejoin="round" />
+      )}
+      {/* Points */}
+      {data.map((d, i) => (
+        <circle key={i} cx={px(i)} cy={py(d.y)} r={3} fill="#6366f1" />
+      ))}
+      {/* Axes */}
+      <line x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + ih} stroke="#cbd5e1" strokeWidth={1.5} />
+      <line x1={pad.left} y1={pad.top + ih} x2={pad.left + iw} y2={pad.top + ih} stroke="#cbd5e1" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+function PieChart({
+  data, size = 200,
+}: {
+  data: Array<{ x: string | number; y: number; label?: string }>;
+  size?: number;
+}) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * 0.36;
+  const total = data.reduce((s, d) => s + d.y, 0) || 1;
+
+  let startAngle = -Math.PI / 2;
+  const slices = data.map((d, i) => {
+    const angle = (d.y / total) * 2 * Math.PI;
+    const endAngle = startAngle + angle;
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const path = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`;
+    const midAngle = startAngle + angle / 2;
+    const result = { path, color: CHART_COLORS[i % CHART_COLORS.length], midAngle, d };
+    startAngle = endAngle;
+    return result;
+  });
+
+  const legendY = size + 4;
+  return (
+    <svg
+      viewBox={`0 0 ${size} ${legendY + data.length * 16}`}
+      style={{ width: '100%', maxWidth: size + 80, display: 'block', margin: '0 auto' }}
+    >
+      {slices.map((s, i) => (
+        <path key={i} d={s.path} fill={s.color} opacity={0.85} stroke="white" strokeWidth={1.5} />
+      ))}
+      {/* Legend */}
+      {slices.map((s, i) => (
+        <g key={i} transform={`translate(${cx - r},${legendY + i * 16})`}>
+          <rect width={10} height={10} fill={s.color} rx={2} />
+          <text x={14} y={9} fontSize={9} fill="#475569">
+            {String(s.d.label ?? s.d.x).slice(0, 20)} ({((s.d.y / total) * 100).toFixed(0)}%)
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function DataVizBlock({
   chartType, title, data, config,
 }: {
@@ -434,47 +720,58 @@ function DataVizBlock({
   data: Array<{ x: string | number; y: number; label?: string }>;
   config?: Record<string, unknown>;
 }) {
-  // Simple sparkline implementation for now
   if (chartType === 'sparkline') {
-    const values = data.map(d => d.y);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = max - min || 1;
-
     return (
-      <div style={{ margin: '0.5rem 0', display: 'inline-flex', alignItems: 'flex-end', gap: '1px', height: '24px' }}>
-        {values.map((v, i) => {
-          const height = ((v - min) / range) * 20 + 4;
-          return (
-            <div key={i} style={{
-              width: '3px',
-              height: `${height}px`,
-              backgroundColor: '#6366f1',
-              borderRadius: '1px',
-            }} />
-          );
-        })}
+      <div style={{ margin: '0.5rem 0' }}>
+        <SparklineChart data={data} />
       </div>
     );
   }
 
-  // Placeholder for other chart types
+  const w = typeof config?.width === 'number' ? config.width : 480;
+  const h = typeof config?.height === 'number' ? config.height : 200;
+
+  let chart: React.ReactNode;
+  if (chartType === 'bar') {
+    chart = <BarChart data={data} width={w} height={h} />;
+  } else if (chartType === 'line') {
+    chart = <LineChart data={data} width={w} height={h} />;
+  } else if (chartType === 'area') {
+    chart = <LineChart data={data} width={w} height={h} filled />;
+  } else if (chartType === 'pie') {
+    chart = <PieChart data={data} size={Math.min(w, h)} />;
+  } else {
+    // scatter — simple dot plot
+    chart = (
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, display: 'block' }}>
+        <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={11} fill="#94a3b8">
+          scatter ({data.length} pts)
+        </text>
+        {data.map((d, i) => {
+          const maxX = Math.max(...data.map(p => Number(p.x)), 1);
+          const maxY = Math.max(...data.map(p => p.y), 1);
+          const cx = 32 + (Number(d.x) / maxX) * (w - 48);
+          const cy = 16 + (1 - d.y / maxY) * (h - 48);
+          return <circle key={i} cx={cx} cy={cy} r={4} fill={CHART_COLORS[i % CHART_COLORS.length]} opacity={0.8} />;
+        })}
+      </svg>
+    );
+  }
+
   return (
     <div style={{
       margin: '0.75rem 0',
-      padding: '1rem',
+      padding: '0.75rem 1rem',
       backgroundColor: '#f8fafc',
       border: '1px solid #e2e8f0',
       borderRadius: '0.5rem',
-      textAlign: 'center',
     }}>
-      {title && <div style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.8rem' }}>{title}</div>}
-      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-        [{chartType} chart with {data.length} data points]
-      </div>
-      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-        Charting library integration required
-      </div>
+      {title && (
+        <div style={{ fontWeight: 600, marginBottom: '0.625rem', fontSize: '0.8rem', color: '#1e293b' }}>
+          {title}
+        </div>
+      )}
+      {chart}
     </div>
   );
 }

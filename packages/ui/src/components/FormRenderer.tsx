@@ -17,7 +17,7 @@
 //   registry.register('deployment', 'form', { default: () => FormWrapper });
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { FormField, FormSection, ValidationRule } from '@hari/core';
 
 // ── Public props ──────────────────────────────────────────────────────────────
@@ -39,6 +39,12 @@ export interface FormRendererProps {
   submitButtonLabel?: string;
   /** Whether form is currently submitting */
   isSubmitting?: boolean;
+  /**
+   * Async validators keyed by field id.
+   * Called after sync validation passes on blur.
+   * Return null for valid, or an error string.
+   */
+  asyncValidators?: Record<string, (value: unknown) => Promise<string | null>>;
 }
 
 // ── Validation helpers ────────────────────────────────────────────────────────
@@ -116,10 +122,14 @@ export function FormRenderer({
   showSubmitButton = true,
   submitButtonLabel = 'Submit',
   isSubmitting = false,
+  asyncValidators = {},
 }: FormRendererProps) {
   const [values, setValues] = useState<Record<string, unknown>>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [validating, setValidating] = useState<Record<string, boolean>>({});
+  // Track pending async calls so stale results are discarded
+  const asyncSeq = useRef<Record<string, number>>({});
 
   // Initialize with default values
   useEffect(() => {
@@ -157,13 +167,26 @@ export function FormRenderer({
   const handleFieldBlur = useCallback(
     (fieldId: string, field: FormField) => {
       setTouched((prev) => ({ ...prev, [fieldId]: true }));
-      const error = validateField(values[fieldId], field);
-      setErrors((prev) => ({
-        ...prev,
-        [fieldId]: error || '',
-      }));
+      const syncError = validateField(values[fieldId], field);
+      setErrors((prev) => ({ ...prev, [fieldId]: syncError || '' }));
+
+      // Run async validator only when sync validation passes
+      if (!syncError && asyncValidators[fieldId]) {
+        const seq = (asyncSeq.current[fieldId] ?? 0) + 1;
+        asyncSeq.current[fieldId] = seq;
+        setValidating((prev) => ({ ...prev, [fieldId]: true }));
+        asyncValidators[fieldId](values[fieldId]).then((asyncError) => {
+          // Discard if a newer call has been triggered
+          if (asyncSeq.current[fieldId] !== seq) return;
+          setValidating((prev) => ({ ...prev, [fieldId]: false }));
+          if (asyncError) setErrors((prev) => ({ ...prev, [fieldId]: asyncError }));
+        }).catch(() => {
+          if (asyncSeq.current[fieldId] !== seq) return;
+          setValidating((prev) => ({ ...prev, [fieldId]: false }));
+        });
+      }
     },
-    [values]
+    [values, asyncValidators]
   );
 
   const handleSubmit = useCallback(
@@ -207,6 +230,7 @@ export function FormRenderer({
           values={values}
           errors={errors}
           touched={touched}
+          validating={validating}
           onFieldChange={handleFieldChange}
           onFieldBlur={handleFieldBlur}
           isFieldVisible={isFieldVisible}
@@ -245,6 +269,7 @@ interface FormSectionRendererProps {
   values: Record<string, unknown>;
   errors: Record<string, string>;
   touched: Record<string, boolean>;
+  validating: Record<string, boolean>;
   onFieldChange: (fieldId: string, value: unknown, field: FormField) => void;
   onFieldBlur: (fieldId: string, field: FormField) => void;
   isFieldVisible: (field: FormField) => boolean;
@@ -255,6 +280,7 @@ function FormSectionRenderer({
   values,
   errors,
   touched,
+  validating,
   onFieldChange,
   onFieldBlur,
   isFieldVisible,
@@ -312,6 +338,7 @@ function FormSectionRenderer({
               field={field}
               value={values[field.id]}
               error={touched[field.id] ? errors[field.id] : undefined}
+              isValidating={!!validating[field.id]}
               onChange={(value) => onFieldChange(field.id, value, field)}
               onBlur={() => onFieldBlur(field.id, field)}
             />
@@ -328,11 +355,12 @@ interface FieldRendererProps {
   field: FormField;
   value: unknown;
   error?: string;
+  isValidating?: boolean;
   onChange: (value: unknown) => void;
   onBlur: () => void;
 }
 
-function FieldRenderer({ field, value, error, onChange, onBlur }: FieldRendererProps) {
+function FieldRenderer({ field, value, error, isValidating, onChange, onBlur }: FieldRendererProps) {
   const fieldId = `field-${field.id}`;
   const hasError = !!error;
 
@@ -381,13 +409,19 @@ function FieldRenderer({ field, value, error, onChange, onBlur }: FieldRendererP
 
       {renderFieldInput(field, value, onChange, onBlur, fieldId, commonInputStyles)}
 
-      {field.helpText && !hasError && (
+      {field.helpText && !hasError && !isValidating && (
         <p style={{ margin: '0.25rem 0 0', fontSize: '0.7rem', color: '#94a3b8' }}>
           {field.helpText}
         </p>
       )}
 
-      {hasError && (
+      {isValidating && (
+        <p style={{ margin: '0.25rem 0 0', fontSize: '0.7rem', color: '#6366f1', fontWeight: 500 }}>
+          Validating…
+        </p>
+      )}
+
+      {hasError && !isValidating && (
         <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#ef4444', fontWeight: 500 }}>
           {error}
         </p>
