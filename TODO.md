@@ -60,25 +60,35 @@
 
 ---
 
-## 📋 Planned (v0.3 - Future)
+## ✅ Completed (v0.3)
+
+### New Intent Types (v0.3.0)
+- [x] **Chat/Conversation** — conversational UI pattern (schema + renderer + support chat scenario, streaming support, attachments, density-aware)
+
+### Developer Experience (v0.3.1)
+- [x] **Component Playground** (§10b) — interactive JSON editor in demo app: paste any intent payload, get live schema validation feedback + rendered output side-by-side; 12 IntentPayloadSchema round-trip tests added (core total: 349)
+
+---
+
+## 📋 Planned (v0.4 - Future)
 
 ### Enhanced Form Capabilities
-- [ ] File upload preview and progress
-- [ ] Multi-step forms with wizard navigation
-- [ ] Form auto-save and recovery
+- [x] File upload preview and progress (done — `showPreview` + `URL.createObjectURL`)
+- [x] Multi-step forms with wizard navigation (done — `WizardStepIndicator`)
+- [x] Form auto-save and recovery (done — localStorage draft restore)
 - [ ] Rich text editor field type
-- [ ] Date range picker
-- [ ] Color picker field
-- [ ] Autocomplete/typeahead fields with async data
+- [x] Date range picker (done — `date_range` field type)
+- [x] Color picker field (done — native `<input type="color">`)
+- [x] Autocomplete/typeahead fields with async data (done — `autocomplete` field type)
 
 ### Enhanced Document Capabilities
 - [ ] Interactive code blocks with syntax highlighting library integration
-- [ ] Full charting library integration (e.g., Recharts, Chart.js)
-- [ ] Table sorting and filtering
-- [ ] Expandable/collapsible sections
-- [ ] Table of contents auto-generation
-- [ ] Document search and navigation
-- [ ] Export to PDF/Markdown
+- [ ] Full charting library integration (e.g., Recharts, Chart.js) — custom SVG charts exist; external library would add scatter/area
+- [x] Table sorting and filtering (done — column sort, filter input > 4 rows)
+- [x] Expandable/collapsible sections (done — `collapsible`/`defaultCollapsed` flags)
+- [x] Table of contents auto-generation (done — `showToc` with `tocSections`)
+- [x] Document search and navigation (done — `showSearch` prop)
+- [x] Export to PDF/Markdown (done — `showPdfExport` + `onExportMarkdown`)
 
 ### New Intent Types
 - [x] **Workflow** — multi-step guided processes (schema + renderer + onboarding scenario)
@@ -211,4 +221,4 @@ Track user-requested features here:
 
 ---
 
-*Last updated: 2026-02-24 (v0.3.0 — Chat/Conversation intent type)*
+*Last updated: 2026-02-24 (v0.3.1 — Component Playground + TODO audit of already-completed features)*

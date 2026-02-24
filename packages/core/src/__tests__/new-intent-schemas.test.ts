@@ -1,8 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema tests — Timeline, Workflow, Kanban, Calendar, Tree, Chat
+// Schema tests — Timeline, Workflow, Kanban, Calendar, Tree, Chat,
+//                and Playground payload validation
 //
 // Covers schema validation, default application, and boundary conditions for
-// the six intent-type schemas added in v0.2–v0.3.
+// the six intent-type schemas added in v0.2–v0.3, plus IntentPayloadSchema
+// round-trips used by the PayloadPlayground developer tool (FUTURE_TASKS §10b).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { describe, it, expect } from 'vitest';
@@ -698,5 +700,194 @@ describe('ChatDataSchema', () => {
 
   it('rejects non-array messages', () => {
     expect(ChatDataSchema.safeParse({ messages: 'not-an-array' }).success).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IntentPayloadSchema — Playground validation
+//
+// These tests mirror the validation logic in PayloadPlayground (§10b).
+// They confirm that realistic multi-intent-type payloads round-trip correctly
+// through IntentPayloadSchema.safeParse, which is the playground's core path.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { IntentPayloadSchema } from '../schemas/intent';
+
+// Stable test UUIDs for IntentPayloadSchema tests
+const UUID_A = '11111111-1111-4111-8111-111111111111';
+const UUID_B = '22222222-2222-4222-8222-222222222222';
+const UUID_C = '33333333-3333-4333-8333-333333333333';
+const UUID_D = '44444444-4444-4444-8444-444444444444';
+
+const PG_BASE_TS = new Date('2026-02-24T10:00:00Z').getTime();
+
+describe('IntentPayloadSchema — playground round-trip validation', () => {
+  // ── Chat payload ──────────────────────────────────────────────────────────
+
+  it('accepts a valid chat payload', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: UUID_A,
+      type: 'chat',
+      domain: 'support',
+      primaryGoal: 'Test chat',
+      confidence: 0.9,
+      data: {
+        messages: [
+          { id: 'm1', role: 'user', content: 'Hello', timestamp: PG_BASE_TS },
+          { id: 'm2', role: 'agent', content: 'Hi!', timestamp: PG_BASE_TS + 1000 },
+        ],
+      },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(true);
+  });
+
+  // ── Calendar payload ──────────────────────────────────────────────────────
+
+  it('accepts a valid calendar payload', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: UUID_B,
+      type: 'calendar',
+      domain: 'engineering',
+      primaryGoal: 'Team schedule',
+      confidence: 0.85,
+      data: {
+        events: [
+          { id: 'e1', title: 'Standup', start: '2026-02-24T09:00:00', end: '2026-02-24T09:30:00' },
+        ],
+      },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(true);
+  });
+
+  // ── Kanban payload ────────────────────────────────────────────────────────
+
+  it('accepts a valid kanban payload', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: UUID_C,
+      type: 'kanban',
+      domain: 'project',
+      primaryGoal: 'Sprint board',
+      confidence: 0.9,
+      data: {
+        columns: [
+          { id: 'c1', title: 'To Do', cards: [{ id: 'k1', title: 'Task 1' }] },
+        ],
+      },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(true);
+  });
+
+  // ── Missing required fields ───────────────────────────────────────────────
+
+  it('rejects payload missing intentId', () => {
+    const payload = {
+      version: '1.0.0',
+      type: 'chat',
+      domain: 'support',
+      primaryGoal: 'Test',
+      confidence: 0.9,
+      data: { messages: [] },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it('rejects payload with non-UUID intentId', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: 'not-a-uuid',
+      type: 'chat',
+      domain: 'support',
+      primaryGoal: 'Test',
+      confidence: 0.9,
+      data: { messages: [] },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it('rejects payload missing primaryGoal', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: UUID_A,
+      type: 'chat',
+      domain: 'support',
+      confidence: 0.9,
+      data: { messages: [] },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it('rejects payload with confidence out of range', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: UUID_A,
+      type: 'chat',
+      domain: 'support',
+      primaryGoal: 'Test',
+      confidence: 1.5,
+      data: { messages: [] },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it('rejects payload with negative confidence', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: UUID_A,
+      type: 'chat',
+      domain: 'support',
+      primaryGoal: 'Test',
+      confidence: -0.1,
+      data: { messages: [] },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  // ── Optional fields and defaults ──────────────────────────────────────────
+
+  it('applies default density when not provided', () => {
+    const payload = {
+      version: '1.0.0',
+      intentId: UUID_D,
+      type: 'chat',
+      domain: 'support',
+      primaryGoal: 'Default density test',
+      confidence: 0.8,
+      data: { messages: [] },
+    };
+    const result = IntentPayloadSchema.safeParse(payload);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.density).toBe('operator');
+    }
+  });
+
+  it('accepts all density values', () => {
+    for (const density of ['executive', 'operator', 'expert']) {
+      const payload = {
+        version: '1.0.0', intentId: UUID_A, type: 'chat', domain: 'support',
+        primaryGoal: 'Density test', confidence: 0.9, density, data: { messages: [] },
+      };
+      expect(IntentPayloadSchema.safeParse(payload).success).toBe(true);
+    }
+  });
+
+  it('rejects unknown density value', () => {
+    const payload = {
+      version: '1.0.0', intentId: UUID_A, type: 'chat', domain: 'support',
+      primaryGoal: 'Test', confidence: 0.9, density: 'ultra', data: { messages: [] },
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(false);
+  });
+
+  it('accepts payload with actions array', () => {
+    const payload = {
+      version: '1.0.0', intentId: UUID_A, type: 'chat', domain: 'support',
+      primaryGoal: 'With actions', confidence: 0.9, data: { messages: [] },
+      actions: [{ id: 'close', label: 'Close session', variant: 'secondary' }],
+    };
+    expect(IntentPayloadSchema.safeParse(payload).success).toBe(true);
   });
 });

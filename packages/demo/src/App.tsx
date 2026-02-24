@@ -30,6 +30,7 @@ import { timelineDeploymentsIntent } from './scenarios/timeline-deployments';
 import { workflowOnboardingIntent } from './scenarios/workflow-onboarding';
 import { kanbanSprintIntent } from './scenarios/kanban-sprint';
 import { chatSupportIntent } from './scenarios/chat-support';
+import { PayloadPlayground } from './components/PayloadPlayground';
 import {
   makeIotMutator,
   makeCloudopsMutator,
@@ -97,6 +98,7 @@ const LIVE_MUTATORS: Record<string, (() => (intent: import('@hari/core').IntentP
 const LIVE_UPDATE_INTERVAL_MS = 2000;
 
 export function App() {
+  const [activeView, setActiveView] = React.useState<'demo' | 'playground'>('demo');
   const [activeScenario, setActiveScenario] = React.useState<string>('travel');
   const [log, setLog] = React.useState<string[]>([]);
   const [hypotheticalQuery, setHypotheticalQuery] = React.useState<string | null>(null);
@@ -238,20 +240,37 @@ export function App() {
           <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Human–Agent Runtime Interface · v0.1</div>
         </div>
 
-        {/* Scenario tabs */}
-        <div style={{ display: 'flex', gap: '0.375rem' }}>
-          {Object.entries(SCENARIOS).map(([key, { label, emoji }]) => (
-            <button key={key} onClick={() => setActiveScenario(key)} style={{
+        {/* View toggle: Demo vs Playground */}
+        <div style={{ display: 'flex', gap: '0.375rem', borderRight: '1px solid #334155', paddingRight: '0.75rem', marginRight: '0.25rem' }}>
+          {(['demo', 'playground'] as const).map((view) => (
+            <button key={view} onClick={() => setActiveView(view)} style={{
               padding: '0.375rem 0.875rem', borderRadius: '0.375rem', border: 'none',
-              backgroundColor: activeScenario === key ? '#4f46e5' : '#1e293b',
-              color: activeScenario === key ? 'white' : '#94a3b8',
-              fontWeight: activeScenario === key ? 700 : 400,
-              cursor: 'pointer', fontSize: '0.8rem',
+              backgroundColor: activeView === view ? '#312e81' : '#1e293b',
+              color: activeView === view ? '#c7d2fe' : '#94a3b8',
+              fontWeight: activeView === view ? 700 : 400,
+              cursor: 'pointer', fontSize: '0.8rem', textTransform: 'capitalize',
             }}>
-              {emoji} {label}
+              {view === 'playground' ? '🧩 Playground' : '▶ Demo'}
             </button>
           ))}
         </div>
+
+        {/* Scenario tabs — only shown in demo view */}
+        {activeView === 'demo' && (
+          <div style={{ display: 'flex', gap: '0.375rem' }}>
+            {Object.entries(SCENARIOS).map(([key, { label, emoji }]) => (
+              <button key={key} onClick={() => setActiveScenario(key)} style={{
+                padding: '0.375rem 0.875rem', borderRadius: '0.375rem', border: 'none',
+                backgroundColor: activeScenario === key ? '#4f46e5' : '#1e293b',
+                color: activeScenario === key ? 'white' : '#94a3b8',
+                fontWeight: activeScenario === key ? 700 : 400,
+                cursor: 'pointer', fontSize: '0.8rem',
+              }}>
+                {emoji} {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Right side: live sim + connection badge + density selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -299,8 +318,15 @@ export function App() {
         </div>
       )}
 
-      {/* ── Main grid ────────────────────────────────────────────────── */}
-      <main style={{
+      {/* ── Playground view ─────────────────────────────────────────── */}
+      {activeView === 'playground' && (
+        <main style={{ flex: 1 }}>
+          <PayloadPlayground />
+        </main>
+      )}
+
+      {/* ── Main grid (demo view) ─────────────────────────────────────── */}
+      {activeView === 'demo' && <main style={{
         flex: 1,
         display: 'grid',
         gridTemplateColumns: '1fr 340px',
@@ -437,7 +463,8 @@ export function App() {
             </ul>
           </Panel>
         </div>
-      </main>
+      </main>}
+
     </div>
   );
 }
