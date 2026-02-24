@@ -27,3 +27,6 @@ export * from './transport/index';
 
 // Telemetry
 export * from './telemetry/index';
+
+// Validation & Trust Testing
+export * from './validation/index';
