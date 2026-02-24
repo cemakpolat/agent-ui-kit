@@ -218,10 +218,23 @@ export const calendarOnCallIntent: IntentPayloadInput = {
   },
 
   explainability: {
+    overview: {
+      elementId: 'overview',
+      summary: 'The agent identified that you asked about the current week\'s engineering schedule and on-call rotation.',
+      confidenceRange: { low: 0.94, high: 0.97 },
+      dataSources: [],
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
+    },
     'incident-explain': {
       elementId: 'incident-explain',
       summary: 'A P1 incident occurred on 2026-02-21 (DB connection pool exhaustion affecting EU region for 47 min). The post-mortem is mandatory within 5 business days per SRE policy.',
       dataSources: [{ name: 'Incident tracker', type: 'api' }],
+      confidenceRange: { low: 0.97, high: 0.99 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
   },
 };

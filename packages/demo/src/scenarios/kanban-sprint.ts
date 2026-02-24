@@ -238,15 +238,35 @@ export const kanbanSprintIntent: IntentPayloadInput = {
   },
 
   explainability: {
+    overview: {
+      elementId: 'overview',
+      summary: 'You asked about the current sprint status for Platform Engineering. The agent retrieved Sprint 17 data from the project tracker and rendered it as a kanban board.',
+      confidenceRange: { low: 0.94, high: 0.97 },
+      dataSources: [],
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
+    },
     'gw-441-explain': {
       elementId: 'gw-441-explain',
       summary: 'This card resolves the P1 incident from 2026-02-18 (INC-0412) that caused 47 min of elevated errors on US-EAST. It is the highest-priority item on the board and is currently in canary.',
-      dataSources: [{ name: 'Incident INC-0412', type: 'api' }, { name: 'JIRA GW-441', type: 'api' }],
+      dataSources: [
+        { name: 'Incident INC-0412', type: 'api' },
+        { name: 'JIRA GW-441', type: 'api' },
+      ],
+      confidenceRange: { low: 0.97, high: 0.99 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
     'dp-071-explain': {
       elementId: 'dp-071-explain',
       summary: 'GDPR row-level security requires Legal sign-off before the filtering policy can go live in production. Without it the feature cannot be deployed, and the compliance deadline is 2026-03-31.',
       dataSources: [{ name: 'JIRA DP-071', type: 'api' }],
+      confidenceRange: { low: 0.91, high: 0.95 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
   },
 };

@@ -228,15 +228,32 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
   },
 
   explainability: {
+    overview: {
+      elementId: 'overview',
+      summary: 'You asked for the recent deployment history of the API Gateway. The agent retrieved the last 30 days of deploy, config, and incident events from the CI/CD and incident tracking systems.',
+      confidenceRange: { low: 0.91, high: 0.95 },
+      dataSources: [],
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
+    },
     'deploy-v1-18-explain': {
       elementId: 'deploy-v1-18-explain',
       summary: 'v1.18.0 introduced the rate-limiting overhaul that was the root cause of the subsequent EU incident. Highlighted for causal traceability.',
       dataSources: [{ name: 'CI/CD log', type: 'api' }],
+      confidenceRange: { low: 0.87, high: 0.91 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
     'incident-0203-explain': {
       elementId: 'incident-0203-explain',
       summary: 'The upstream timeout misconfiguration was introduced by the config push on 2026-01-28, which changed a value the incident responders later identified as the trigger.',
       dataSources: [{ name: 'Incident tracker INC-0381', type: 'api' }],
+      confidenceRange: { low: 0.89, high: 0.93 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
     'incident-p1-explain': {
       elementId: 'incident-p1-explain',
@@ -245,11 +262,19 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         { name: 'Incident report INC-0412', type: 'api' },
         { name: 'JIRA GW-441', type: 'api' },
       ],
+      confidenceRange: { low: 0.94, high: 0.97 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
     'deploy-v1-20-1-explain': {
       elementId: 'deploy-v1-20-1-explain',
       summary: 'v1.20.1 is currently at 10% canary traffic with no errors in 17 min. The agent flagged it as in-progress because full rollout is pending validation.',
       dataSources: [{ name: 'Deployment dashboard', type: 'api' }],
+      confidenceRange: { low: 0.96, high: 0.98 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
   },
 };

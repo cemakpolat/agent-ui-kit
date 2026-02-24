@@ -43,8 +43,8 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: false,
             validation: [
-              { rule: 'minLength', value: 3, message: 'Must be at least 3 characters' },
-              { rule: 'pattern', value: '^[a-z][a-z0-9-]+$', message: 'Lowercase letters, numbers and hyphens only; must start with a letter' },
+              { type: 'min', value: 3, message: 'Must be at least 3 characters' },
+              { type: 'pattern', value: '^[a-z][a-z0-9-]+$', message: 'Lowercase letters, numbers and hyphens only; must start with a letter' },
             ],
             multiline: false,
             placeholder: 'e.g. payment-processor',
@@ -70,7 +70,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
           {
             id: 'description',
             label: 'Description',
-            type: 'textarea',
+            type: 'text',
             required: false,
             disabled: false,
             sensitive: false,
@@ -128,8 +128,8 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: false,
             validation: [
-              { rule: 'min', value: 50, message: 'Minimum 50 m' },
-              { rule: 'max', value: 4000, message: 'Maximum 4000 m per pod' },
+              { type: 'min', value: 50, message: 'Minimum 50 m' },
+              { type: 'max', value: 4000, message: 'Maximum 4000 m per pod' },
             ],
             placeholder: '250',
             helpText: 'Kubernetes CPU request in millicores (1000 m = 1 vCPU).',
@@ -142,8 +142,8 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: false,
             validation: [
-              { rule: 'min', value: 64, message: 'Minimum 64 MiB' },
-              { rule: 'max', value: 8192, message: 'Maximum 8192 MiB per pod' },
+              { type: 'min', value: 64, message: 'Minimum 64 MiB' },
+              { type: 'max', value: 8192, message: 'Maximum 8192 MiB per pod' },
             ],
             placeholder: '512',
           },
@@ -155,7 +155,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: false,
             validation: [
-              { rule: 'min', value: 1, message: 'Must be at least 1' },
+              { type: 'min', value: 1, message: 'Must be at least 1' },
             ],
             placeholder: '2',
           },
@@ -167,7 +167,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: false,
             validation: [
-              { rule: 'min', value: 1, message: 'Must be at least 1' },
+              { type: 'min', value: 1, message: 'Must be at least 1' },
             ],
             placeholder: '10',
           },
@@ -226,7 +226,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: true,
             validation: [
-              { rule: 'pattern', value: '^[^@]+@[^@]+\\.[^@]+$|^[A-Za-z0-9+/]{32,}$', message: 'Enter a valid email address or PagerDuty routing key' },
+              { type: 'pattern', value: '^[^@]+@[^@]+\\.[^@]+$|^[A-Za-z0-9+/]{32,}$', message: 'Enter a valid email address or PagerDuty routing key' },
             ],
             multiline: false,
             placeholder: 'oncall@example.com',
@@ -239,8 +239,8 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: false,
             validation: [
-              { rule: 'min', value: 0.001, message: 'Must be greater than 0' },
-              { rule: 'max', value: 10, message: 'Must be 10% or less' },
+              { type: 'min', value: 0.001, message: 'Must be greater than 0' },
+              { type: 'max', value: 10, message: 'Must be 10% or less' },
             ],
             placeholder: '0.1',
             helpText: 'Monthly error budget derived from the chosen SLA tier.',
@@ -264,7 +264,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
             disabled: false,
             sensitive: false,
             validation: [
-              { rule: 'pattern', value: '^arn:aws:iam::\\d{12}:role/.+|^$', message: 'Must be a valid IAM role ARN or left blank' },
+              { type: 'pattern', value: '^arn:aws:iam::\\d{12}:role/.+|^$', message: 'Must be a valid IAM role ARN or left blank' },
             ],
             multiline: false,
             placeholder: 'arn:aws:iam::123456789012:role/my-service-role',
@@ -316,5 +316,15 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
     ],
   },
 
-  explainability: {},
+  explainability: {
+    overview: {
+      elementId: 'overview',
+      summary: 'You requested to register a new microservice. The agent launched the standard platform onboarding workflow, which ensures all required infrastructure and compliance settings are captured before provisioning begins.',
+      confidenceRange: { low: 0.97, high: 0.99 },
+      dataSources: [],
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
+    },
+  },
 };

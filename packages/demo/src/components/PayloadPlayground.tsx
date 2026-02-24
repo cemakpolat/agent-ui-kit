@@ -24,7 +24,7 @@ import { registry } from '../registry';
 const STARTER_TEMPLATES: Record<string, string> = {
   chat: JSON.stringify({
     version: '1.0.0',
-    intentId: 'playground-chat-1',
+    intentId: '00000000-0000-0000-0000-000000000001',
     type: 'chat',
     domain: 'support',
     primaryGoal: 'Try the Chat renderer',
@@ -43,7 +43,7 @@ const STARTER_TEMPLATES: Record<string, string> = {
 
   document: JSON.stringify({
     version: '1.0.0',
-    intentId: 'playground-doc-1',
+    intentId: '00000000-0000-0000-0000-000000000002',
     type: 'document',
     domain: 'reports',
     primaryGoal: 'Display a rich document',
@@ -58,8 +58,8 @@ const STARTER_TEMPLATES: Record<string, string> = {
           confidence: 0.9,
           collapsible: true,
           blocks: [
-            { id: 'b1', type: 'paragraph', text: 'Edit this JSON to experiment with the document renderer. Try adding different **block types**.' },
-            { id: 'b2', type: 'callout', level: 'info', title: 'Tip', body: 'You can add any block type: heading, paragraph, list, code, table, callout, badge, divider.' },
+            { type: 'paragraph', text: 'Edit this JSON to experiment with the document renderer. Try adding different block types.' },
+            { type: 'callout', variant: 'info', title: 'Tip', text: 'You can add any block type: heading, paragraph, list, code, table, callout, metric, divider.' },
           ],
         },
         {
@@ -67,7 +67,7 @@ const STARTER_TEMPLATES: Record<string, string> = {
           title: 'Sample Table',
           blocks: [
             {
-              id: 'b3', type: 'table',
+              type: 'table',
               headers: [
                 { key: 'name', label: 'Name' },
                 { key: 'status', label: 'Status' },
@@ -90,7 +90,7 @@ const STARTER_TEMPLATES: Record<string, string> = {
 
   calendar: JSON.stringify({
     version: '1.0.0',
-    intentId: 'playground-cal-1',
+    intentId: '00000000-0000-0000-0000-000000000003',
     type: 'calendar',
     domain: 'engineering',
     primaryGoal: 'Show a team calendar',
@@ -109,7 +109,7 @@ const STARTER_TEMPLATES: Record<string, string> = {
 
   kanban: JSON.stringify({
     version: '1.0.0',
-    intentId: 'playground-kanban-1',
+    intentId: '00000000-0000-0000-0000-000000000004',
     type: 'kanban',
     domain: 'project',
     primaryGoal: 'Show a Kanban board',

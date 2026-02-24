@@ -194,10 +194,23 @@ export const treeOrgChartIntent: IntentPayloadInput = {
   },
 
   explainability: {
+    overview: {
+      elementId: 'overview',
+      summary: 'The agent retrieved the current organisational structure from the HR system and rendered it as an interactive hierarchy.',
+      confidenceRange: { low: 0.95, high: 0.98 },
+      dataSources: [],
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
+    },
     'platform-explain': {
       elementId: 'platform-explain',
-      summary: 'Platform Eng was highlighted because it has 3 open roles, which is above the 10% vacancy threshold that triggers agent attention.',
+      summary: 'Platform Engineering was highlighted because it has 3 open roles, which is above the 10% vacancy threshold that triggers agent attention.',
       dataSources: [{ name: 'HR system', type: 'api' }],
+      confidenceRange: { low: 0.92, high: 0.95 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
   },
 };

@@ -108,13 +108,26 @@ export const chatSupportIntent: IntentPayloadInput = {
   },
 
   explainability: {
+    overview: {
+      elementId: 'overview',
+      summary: 'The agent detected a billing anomaly on your account and initiated a support session to resolve a duplicate charge.',
+      confidenceRange: { low: 0.91, high: 0.95 },
+      dataSources: [],
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
+    },
     'refund-explain': {
       elementId: 'refund-explain',
       summary: 'Our billing system detected two identical charges (same amount, same billing period) within 24 hours. Per policy, duplicate charges are automatically eligible for refund without additional approval. The refund was initiated automatically and flagged to our finance team.',
       dataSources: [
-        { name: 'Billing policy v3.2', type: 'database' },
+        { name: 'Billing policy v3.2', type: 'documentation' },
         { name: 'Transaction log', type: 'database' },
       ],
+      confidenceRange: { low: 0.97, high: 0.99 },
+      assumptions: [],
+      alternativesConsidered: [],
+      whatIfQueries: [],
     },
   },
 
@@ -129,10 +142,6 @@ export const chatSupportIntent: IntentPayloadInput = {
         reversible: true,
         riskLevel: 'low',
         requiresConfirmation: false,
-        blastRadius: {
-          scope: 'self',
-          affectedSystems: ['support-portal'],
-        },
       },
     },
   ],
