@@ -218,16 +218,10 @@ export const calendarOnCallIntent: IntentPayloadInput = {
   },
 
   explainability: {
-    title: 'Why is this calendar shown?',
-    summary: 'The agent identified that you asked about the current week\'s engineering schedule and on-call rotation.',
-    confidence: 0.97,
-    elements: {
-      'incident-explain': {
-        label: 'P1 Post-mortem',
-        reasoning: 'A P1 incident occurred on 2026-02-21 (DB connection pool exhaustion affecting EU region for 47 min). The post-mortem is mandatory within 5 business days per SRE policy.',
-        confidence: 0.99,
-        sources: [{ label: 'Incident tracker', url: '#' }],
-      },
+    'incident-explain': {
+      elementId: 'incident-explain',
+      summary: 'A P1 incident occurred on 2026-02-21 (DB connection pool exhaustion affecting EU region for 47 min). The post-mortem is mandatory within 5 business days per SRE policy.',
+      dataSources: [{ name: 'Incident tracker', type: 'api' }],
     },
   },
 };

@@ -134,16 +134,16 @@
 - [ ] Capability discovery API
 
 ### Hypothetical Mode
-- [ ] Isolated "what-if" overlay system
-- [ ] State branching without mutation
-- [ ] Compare hypothetical vs actual
-- [ ] Rollback/commit flow
+- [x] Isolated "what-if" overlay system (HypotheticalOverlay already existed; extended with full branch state)
+- [x] State branching without mutation (`branchHypothetical()` deep-clones currentIntent via JSON round-trip; Immer mutations isolated to hypothetical branch)
+- [x] Compare hypothetical vs actual (`HypotheticalCompare` side-by-side panel with diff summary; `hypotheticalDiff` tracks changed keys)
+- [x] Rollback/commit flow (`rollbackHypothetical()` discards branch; `commitHypothetical()` promotes to currentIntent + pushes to history; 10 unit tests)
 
 ### Developer Experience
-- [ ] Storybook integration for all components
-- [ ] Component playground
-- [ ] Intent payload builder/validator UI
-- [ ] TypeScript strict mode
+- [x] Storybook integration for all components (`.storybook/main.ts` + `preview.ts`; stories for BlastRadiusBadge, DensitySelector, ExplainPanel, HypotheticalOverlay, HypotheticalCompare, DocumentRenderer, FormRenderer, ChatRenderer)
+- [x] Component playground (done in v0.3.1 — `PayloadPlayground.tsx`)
+- [x] Intent payload builder/validator UI (`IntentPayloadBuilder.tsx` — form-based payload construction with live Zod validation and preview)
+- [x] TypeScript strict mode (`strict: true` already set; added `noImplicitReturns`, `noFallthroughCasesInSwitch`; fixed all resulting type errors across core, ui, and demo packages)
 - [x] ESLint configuration (eslint.config.mjs, flat config, React + TS rules)
 - [x] Prettier configuration (.prettierrc, .prettierignore, format/format:check scripts)
 
@@ -224,4 +224,4 @@ Track user-requested features here:
 
 ---
 
-*Last updated: 2026-02-24 (v0.3.6 — focus management: HypotheticalOverlay, ExplainPanel, ActionGroup confirmation dialog, ImageBlock lightbox all restore focus to trigger on close; img keyboard-accessible (tabIndex+Enter); 7 new focus tests; 189 UI / 388 core)*
+*Last updated: 2026-02-24 (v0.4.0 — Hypothetical Mode state branching + HypotheticalCompare; Storybook integration (8 stories); IntentPayloadBuilder; TypeScript strict mode hardening; all scenario explainability fields migrated to ExplainabilityContext schema; 594 tests passing: 398 core / 196 ui)*

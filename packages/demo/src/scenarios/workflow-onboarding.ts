@@ -316,10 +316,5 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
     ],
   },
 
-  explainability: {
-    title: 'Why is this wizard shown?',
-    summary: 'You requested to register a new microservice. The agent launched the standard platform onboarding workflow, which ensures all required infrastructure and compliance settings are captured before provisioning begins.',
-    confidence: 0.99,
-    elements: {},
-  },
+  explainability: {},
 };

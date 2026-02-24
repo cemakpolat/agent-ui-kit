@@ -12,6 +12,12 @@ import type { AmbiguityControl } from '../schemas/ambiguity';
 // patches and sent back to the agent.
 //
 // History is capped at 20 entries to prevent unbounded memory growth.
+//
+// Hypothetical Branch (v0.4):
+//   branchHypothetical()        — deep-copy currentIntent → hypotheticalIntent
+//   modifyHypotheticalParameter — mutate hypotheticalIntent without touching currentIntent
+//   commitHypothetical()        — replace currentIntent with hypotheticalIntent
+//   rollbackHypothetical()      — discard hypotheticalIntent
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MAX_HISTORY = 20;
@@ -26,6 +32,10 @@ export interface IntentState {
   currentIntent: IntentPayload | null;
   intentHistory: IntentPayload[];
   pendingModifications: PendingModification[];
+  /** Isolated branch of currentIntent for what-if exploration. Never null unless no branch is active. */
+  hypotheticalIntent: IntentPayload | null;
+  /** Tracks which top-level data keys were modified in the hypothetical branch (for diff display). */
+  hypotheticalDiff: Record<string, { was: unknown; becomes: unknown }>;
 }
 
 export interface IntentActions {
@@ -42,6 +52,16 @@ export interface IntentActions {
   commitModifications: () => IntentModification | null;
   clearModifications: () => void;
   undo: () => void;
+
+  // ── Hypothetical branch ────────────────────────────────────────────────────
+  /** Create an isolated copy of currentIntent for what-if exploration. */
+  branchHypothetical: () => void;
+  /** Modify a data key in the hypothetical branch without touching the real state. */
+  modifyHypotheticalParameter: (key: string, value: unknown) => void;
+  /** Apply the hypothetical branch as the new currentIntent (commit). */
+  commitHypothetical: () => void;
+  /** Discard the hypothetical branch (rollback). */
+  rollbackHypothetical: () => void;
 }
 
 export type IntentStore = IntentState & IntentActions;
@@ -50,6 +70,8 @@ export const useIntentStore = create<IntentStore>()((set, get) => ({
   currentIntent: null,
   intentHistory: [],
   pendingModifications: [],
+  hypotheticalIntent: null,
+  hypotheticalDiff: {},
 
   setIntent: (intent) =>
     set(
@@ -62,6 +84,8 @@ export const useIntentStore = create<IntentStore>()((set, get) => ({
         }
         state.currentIntent = intent;
         state.pendingModifications = [];
+        state.hypotheticalIntent = null;
+        state.hypotheticalDiff = {};
       }),
     ),
 
@@ -125,6 +149,53 @@ export const useIntentStore = create<IntentStore>()((set, get) => ({
           state.currentIntent = prev;
           state.pendingModifications = [];
         }
+      }),
+    ),
+
+  // ── Hypothetical branch ──────────────────────────────────────────────────
+
+  branchHypothetical: () =>
+    set(
+      produce((state: IntentState) => {
+        if (!state.currentIntent) return;
+        // Deep-clone via JSON round-trip — IntentPayload is JSON-serialisable
+        state.hypotheticalIntent = JSON.parse(JSON.stringify(state.currentIntent)) as IntentPayload;
+        state.hypotheticalDiff = {};
+      }),
+    ),
+
+  modifyHypotheticalParameter: (key, value) =>
+    set(
+      produce((state: IntentState) => {
+        if (!state.hypotheticalIntent || !state.currentIntent) return;
+        const was = (state.currentIntent.data as Record<string, unknown>)[key];
+        (state.hypotheticalIntent.data as Record<string, unknown>)[key] = value;
+        state.hypotheticalDiff[key] = { was, becomes: value };
+      }),
+    ),
+
+  commitHypothetical: () =>
+    set(
+      produce((state: IntentState) => {
+        if (!state.hypotheticalIntent) return;
+        if (state.currentIntent) {
+          state.intentHistory.unshift(state.currentIntent);
+          if (state.intentHistory.length > MAX_HISTORY) {
+            state.intentHistory.length = MAX_HISTORY;
+          }
+        }
+        state.currentIntent = state.hypotheticalIntent;
+        state.hypotheticalIntent = null;
+        state.hypotheticalDiff = {};
+        state.pendingModifications = [];
+      }),
+    ),
+
+  rollbackHypothetical: () =>
+    set(
+      produce((state: IntentState) => {
+        state.hypotheticalIntent = null;
+        state.hypotheticalDiff = {};
       }),
     ),
 }));

@@ -2,13 +2,15 @@ import { describe, it, expect, beforeEach } from 'vitest';
 const uuidv4 = () => crypto.randomUUID();
 import { compileIntent, buildModificationPatch } from '../compiler/compiler';
 import { ComponentRegistryManager } from '../compiler/registry';
+import type { ComponentResolver } from '../compiler/registry';
 import type { IntentPayload } from '../schemas/intent';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STUB = () => null; // minimal ComponentResolver
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const STUB: ComponentResolver = (() => null) as any; // minimal ComponentResolver stub
 
 function makeIntent(overrides: Partial<IntentPayload> = {}): IntentPayload {
   return {
@@ -146,11 +148,18 @@ describe('compileIntent — output shape', () => {
   it('passes through explainability map when present', () => {
     const intent = makeIntent({
       explainability: {
-        card1: { elementId: 'card1', reason: 'Best price', confidence: 0.9 },
+        card1: {
+          elementId: 'card1',
+          summary: 'Best price',
+          dataSources: [],
+          assumptions: [],
+          alternativesConsidered: [],
+          whatIfQueries: [],
+        },
       },
     });
     const compiled = compileIntent(intent, registry);
-    expect(compiled.explainability['card1'].reason).toBe('Best price');
+    expect(compiled.explainability['card1']?.summary).toBe('Best price');
   });
 });
 

@@ -4,12 +4,21 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+
+    // ── Strict mode (full suite) ────────────────────────────────────────────
     "strict": true,
     "exactOptionalPropertyTypes": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": false,
+
+    // ── Module / emit ───────────────────────────────────────────────────────
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+
+    // ── Path aliases ────────────────────────────────────────────────────────
     "paths": {
       "@hari/core": ["./packages/core/src/index.ts"],
       "@hari/ui": ["./packages/ui/src/index.ts"]
