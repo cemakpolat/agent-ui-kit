@@ -106,7 +106,7 @@
 - [x] Screen reader optimization (live regions for streaming, form errors)
 - [x] Focus management improvements (return focus to trigger on modal/drawer close)
 - [x] ARIA label completeness check (all renderers: Why?, Attach, Send, Expand/Collapse, Export, Print, step nav — v0.3.3)
-- [ ] Color contrast verification (min 4.5:1 normal text, 3:1 large text)
+- [x] Color contrast verification (min 4.5:1 normal text, 3:1 large text)
 - [x] Motion/animation reduction (`prefers-reduced-motion` on blink cursor — v0.3.3)
 
 ### Trust & Validation

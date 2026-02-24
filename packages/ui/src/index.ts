@@ -59,3 +59,21 @@ export type { ChatRendererProps } from './components/ChatRenderer';
 // Hooks
 export { useAgentBridge } from './hooks/useAgentBridge';
 export type { UseAgentBridgeResult } from './hooks/useAgentBridge';
+
+// Utilities — color contrast (WCAG 2.2 AA compliance)
+export {
+  hexToRgb,
+  rgbToHex,
+  calculateLuminance,
+  calculateContrastRatio,
+  checkWCAG_AA_Compliance,
+  checkWCAG_AAA_Compliance,
+  getComplianceSummary,
+  getSuggestionsForImprovement,
+  validateColorPairs,
+} from './utils/colorContrast';
+export type {
+  ContrastCompliance,
+  ContrastComplianceAAA,
+  ColorPairValidation,
+} from './utils/colorContrast';
