@@ -16,7 +16,7 @@
 //   where DocumentWrapper reads data.showConfidence from ambiguity controls.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { DocumentDataSchema } from '@hari/core';
 import type { DocumentBlock, DocumentSection, DocumentData } from '@hari/core';
 
@@ -748,13 +748,30 @@ function ImageBlock({
   width?: number | string;
 }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<Element | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Save the focused element when the lightbox opens; restore it when it closes.
+  useEffect(() => {
+    if (open) {
+      triggerRef.current = document.activeElement;
+      closeBtnRef.current?.focus();
+    } else if (triggerRef.current) {
+      (triggerRef.current as HTMLElement | null)?.focus?.();
+      triggerRef.current = null;
+    }
+  }, [open]);
 
   return (
     <div style={{ margin: '0.75rem 0', textAlign: 'center' }}>
       <img
         src={src}
         alt={alt}
+        tabIndex={0}
         onClick={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); }
+        }}
         style={{
           maxWidth: '100%',
           width: width ?? 'auto',
@@ -764,6 +781,7 @@ function ImageBlock({
           transition: 'opacity 0.15s',
         }}
         title="Click to expand"
+        aria-label={`${alt} — click or press Enter to expand`}
       />
       {caption && (
         <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.375rem', fontStyle: 'italic' }}>
@@ -797,6 +815,7 @@ function ImageBlock({
             }}
           />
           <button
+            ref={closeBtnRef}
             onClick={() => setOpen(false)}
             aria-label="Close lightbox"
             style={{

@@ -104,7 +104,7 @@
 ### Accessibility (WCAG 2.2 AA)
 - [x] Comprehensive keyboard navigation (Enter/Space on Calendar events, h3 collapsible in DocumentRenderer, tabIndex on interactive divs)
 - [x] Screen reader optimization (live regions for streaming, form errors)
-- [ ] Focus management improvements (return focus to trigger on modal/drawer close)
+- [x] Focus management improvements (return focus to trigger on modal/drawer close)
 - [x] ARIA label completeness check (all renderers: Why?, Attach, Send, Expand/Collapse, Export, Print, step nav — v0.3.3)
 - [ ] Color contrast verification (min 4.5:1 normal text, 3:1 large text)
 - [x] Motion/animation reduction (`prefers-reduced-motion` on blink cursor — v0.3.3)
@@ -224,4 +224,4 @@ Track user-requested features here:
 
 ---
 
-*Last updated: 2026-02-24 (v0.3.5 — screen reader live regions: aria-live on ChatRenderer message list + WorkflowRenderer step announcements; 6 new a11y tests; 182 UI / 388 core)*
+*Last updated: 2026-02-24 (v0.3.6 — focus management: HypotheticalOverlay, ExplainPanel, ActionGroup confirmation dialog, ImageBlock lightbox all restore focus to trigger on close; img keyboard-accessible (tabIndex+Enter); 7 new focus tests; 189 UI / 388 core)*
