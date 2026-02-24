@@ -1,0 +1,40 @@
+{
+  "name": "@hari/dev-services",
+  "version": "0.1.0",
+  "description": "Development backend services for HARI (WebSocket, SSE, MCP)",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./agent": {
+      "import": "./dist/agent.js",
+      "types": "./dist/agent.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev:ws": "tsx src/ws-server.ts",
+    "dev:sse": "tsx src/sse-server.ts",
+    "dev:mcp": "tsx src/mcp-server.ts",
+    "start:ws": "node dist/ws-server.js",
+    "start:sse": "node dist/sse-server.js",
+    "start:mcp": "node dist/mcp-server.js"
+  },
+  "dependencies": {
+    "@hari/core": "workspace:*",
+    "@hari/ui": "workspace:*",
+    "ws": "^8.14.2",
+    "axios": "^1.6.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.7.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
+  }
+}

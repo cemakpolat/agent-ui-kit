@@ -4,20 +4,17 @@ import {
   FALLBACK_INTENT,
   GENERIC_DOMAIN,
 } from '../compiler/registry';
-import type { ComponentResolver } from '../compiler/registry';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
 // ─────────────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function stub(name: string): ComponentResolver { return (() => name) as any; }
-const A = stub('A'); // executive stub
-const B = stub('B'); // operator stub
-const C = stub('C'); // expert stub
-const DEFAULT = stub('DEFAULT');
-const FALLBACK_COMP = stub('FALLBACK');
-const GENERIC_COMP = stub('GENERIC');
+const A = () => ({} as any); // executive stub
+const B = () => ({} as any); // operator stub
+const C = () => ({} as any); // expert stub
+const DEFAULT = () => ({} as any);
+const FALLBACK_COMP = () => ({} as any);
+const GENERIC_COMP = () => ({} as any);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resolution priority chain

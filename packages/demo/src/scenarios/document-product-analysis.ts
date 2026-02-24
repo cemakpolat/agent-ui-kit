@@ -35,6 +35,8 @@ const documentData = {
       id: 'overview',
       title: 'Executive Overview',
       confidence: 0.95,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'callout',
@@ -85,6 +87,8 @@ const documentData = {
       id: 'user-engagement',
       title: 'User Engagement Analysis',
       confidence: 0.92,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',
@@ -158,6 +162,8 @@ const documentData = {
       id: 'revenue',
       title: 'Revenue Performance',
       confidence: 0.89,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',
@@ -219,6 +225,8 @@ const documentData = {
       id: 'feature-adoption',
       title: 'Feature Adoption',
       confidence: 0.91,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',
@@ -291,6 +299,8 @@ const documentData = {
       id: 'customer-feedback',
       title: 'Customer Feedback Highlights',
       confidence: 0.87,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',
@@ -338,6 +348,8 @@ const documentData = {
       id: 'technical-performance',
       title: 'Technical Performance',
       confidence: 0.94,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',
@@ -388,6 +400,8 @@ const documentData = {
       id: 'recommendations',
       title: 'Strategic Recommendations',
       confidence: 0.85,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',

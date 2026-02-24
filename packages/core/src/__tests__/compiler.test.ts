@@ -2,15 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 const uuidv4 = () => crypto.randomUUID();
 import { compileIntent, buildModificationPatch } from '../compiler/compiler';
 import { ComponentRegistryManager } from '../compiler/registry';
-import type { ComponentResolver } from '../compiler/registry';
 import type { IntentPayload } from '../schemas/intent';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
 // ─────────────────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const STUB: ComponentResolver = (() => null) as any; // minimal ComponentResolver stub
+const STUB = () => ({} as any); // minimal ComponentResolver - returns empty component
 
 function makeIntent(overrides: Partial<IntentPayload> = {}): IntentPayload {
   return {
@@ -159,7 +157,7 @@ describe('compileIntent — output shape', () => {
       },
     });
     const compiled = compileIntent(intent, registry);
-    expect(compiled.explainability['card1']?.summary).toBe('Best price');
+    expect(compiled.explainability['card1'].summary).toBe('Best price');
   });
 });
 

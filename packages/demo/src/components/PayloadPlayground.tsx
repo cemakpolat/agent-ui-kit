@@ -3,6 +3,7 @@ import {
   IntentPayloadSchema,
   compileIntent,
   type IntentPayload,
+  type IntentPayloadInput,
 } from '@hari/core';
 import { IntentRenderer, IntentErrorBoundary } from '@hari/ui';
 import { registry } from '../registry';

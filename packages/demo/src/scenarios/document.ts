@@ -29,6 +29,8 @@ const documentData = {
       id: 'exec-summary',
       title: 'Executive Summary',
       confidence: 0.97,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'callout',
@@ -73,6 +75,8 @@ const documentData = {
       title: 'Root Cause Analysis',
       confidence: 0.88,
       explainElementId: 'explain-root-cause',
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',
@@ -116,6 +120,8 @@ const documentData = {
       id: 'timeline',
       title: 'Timeline',
       confidence: 0.96,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'list',
@@ -138,6 +144,8 @@ const documentData = {
       id: 'affected-systems',
       title: 'Affected Systems',
       confidence: 0.99,
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'list',
@@ -155,6 +163,8 @@ const documentData = {
 
     {
       id: 'divider-1',
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [{ type: 'divider' }],
     },
 
@@ -163,6 +173,8 @@ const documentData = {
       title: 'Prevention Recommendations',
       confidence: 0.82,
       explainElementId: 'explain-recommendations',
+      collapsible: false,
+      defaultCollapsed: false,
       blocks: [
         {
           type: 'paragraph',

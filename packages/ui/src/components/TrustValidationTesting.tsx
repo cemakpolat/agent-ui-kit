@@ -85,17 +85,19 @@ export const TrustValidationTesting: React.FC = () => {
   };
 
   const recordErrorRecovery = () => {
+    const errorTypes: Array<'validation' | 'network' | 'timeout' | 'execution' | 'permission' | 'other'> = ['validation', 'network', 'timeout'];
+    const strategies: Array<'retry' | 'modify_and_retry' | 'ask_for_help' | 'cancel' | 'escalate' | 'fallback_action'> = ['retry', 'modify_and_retry', 'ask_for_help'];
     const errorId = `err_${Date.now()}`;
     state.errorRecoveryTracker.recordError({
       errorId,
-      errorType: ['validation', 'network', 'timeout'][Math.floor(Math.random() * 3)],
+      errorType: errorTypes[Math.floor(Math.random() * 3)] as any,
       message: 'Test error',
       severity: 'high',
     });
 
     state.errorRecoveryTracker.recordRecoveryAttempt({
       errorId,
-      strategy: ['retry', 'modify_and_retry', 'ask_for_help'][Math.floor(Math.random() * 3)],
+      strategy: strategies[Math.floor(Math.random() * 3)] as any,
       timeToRecoveryMs: Math.floor(Math.random() * 10000),
       wasSuccessful: Math.random() > 0.3,
       userConfidenceAfter: Math.random(),

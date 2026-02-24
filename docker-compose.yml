@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: hari-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    networks:
+      - hari-network
+
+  ws-server:
+    build:
+      context: packages/dev-services
+      dockerfile: Dockerfile.ws
+    container_name: hari-ws-server
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - OLLAMA_URL=http://ollama:11434
+      - NODE_ENV=development
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - hari-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  sse-server:
+    build:
+      context: packages/dev-services
+      dockerfile: Dockerfile.sse
+    container_name: hari-sse-server
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - OLLAMA_URL=http://ollama:11434
+      - NODE_ENV=development
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - hari-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mcp-server:
+    build:
+      context: packages/dev-services
+      dockerfile: Dockerfile.mcp
+    container_name: hari-mcp-server
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - OLLAMA_URL=http://ollama:11434
+      - NODE_ENV=development
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - hari-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  hari-network:
+    driver: bridge
