@@ -51,6 +51,10 @@ export type { CalendarRendererProps } from './components/CalendarRenderer';
 export { TreeRenderer } from './components/TreeRenderer';
 export type { TreeRendererProps } from './components/TreeRenderer';
 
+// Domain components — chat / conversation
+export { ChatRenderer } from './components/ChatRenderer';
+export type { ChatRendererProps } from './components/ChatRenderer';
+
 // Hooks
 export { useAgentBridge } from './hooks/useAgentBridge';
 export type { UseAgentBridgeResult } from './hooks/useAgentBridge';

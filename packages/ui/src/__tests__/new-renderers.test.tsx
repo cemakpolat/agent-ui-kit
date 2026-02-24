@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Renderer tests — Timeline, Workflow, Kanban, Calendar, Tree
+// Renderer tests — Timeline, Workflow, Kanban, Calendar, Tree, Chat
 //
 // Each suite verifies:
 //   - Renders successfully with valid data across all three densities
@@ -17,6 +17,7 @@ import { WorkflowRenderer } from '../components/WorkflowRenderer';
 import { KanbanRenderer } from '../components/KanbanRenderer';
 import { CalendarRenderer } from '../components/CalendarRenderer';
 import { TreeRenderer } from '../components/TreeRenderer';
+import { ChatRenderer } from '../components/ChatRenderer';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared fixtures
@@ -650,5 +651,150 @@ describe('TreeRenderer', () => {
   it('shows error for invalid data', () => {
     render(<TreeRenderer data={{ wrong: true }} density="operator" />);
     expect(screen.getByText(/Invalid tree data/i)).toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ChatRenderer
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BASE_TS = new Date('2026-02-24T10:00:00Z').getTime();
+
+const CHAT_DATA = {
+  title: 'Support Chat',
+  messages: [
+    {
+      id: 'sys-1',
+      role: 'system',
+      content: 'Session started.',
+      timestamp: BASE_TS,
+    },
+    {
+      id: 'agent-1',
+      role: 'agent',
+      content: 'Hello! How can I help you today?',
+      timestamp: BASE_TS + 30_000,
+      status: 'sent',
+    },
+    {
+      id: 'user-1',
+      role: 'user',
+      content: 'I was charged twice.',
+      timestamp: BASE_TS + 90_000,
+      status: 'sent',
+    },
+    {
+      id: 'agent-2',
+      role: 'agent',
+      content: 'I can see the duplicate charge. A refund has been initiated.',
+      timestamp: BASE_TS + 150_000,
+      status: 'sent',
+      attachments: [{ id: 'att-1', name: 'invoice.pdf', type: 'application/pdf' }],
+      explainElementId: 'refund-explain',
+    },
+    {
+      id: 'agent-3',
+      role: 'agent',
+      content: 'Processing your request',
+      timestamp: BASE_TS + 180_000,
+      status: 'streaming',
+    },
+  ],
+  streamingMessageId: 'agent-3',
+  allowAttachments: true,
+};
+
+describe('ChatRenderer', () => {
+  it('renders title', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    expect(screen.getByText('Support Chat')).toBeInTheDocument();
+  });
+
+  it('renders agent and user messages', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    expect(screen.getByText('Hello! How can I help you today?')).toBeInTheDocument();
+    expect(screen.getByText('I was charged twice.')).toBeInTheDocument();
+  });
+
+  it('renders system message', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    expect(screen.getByText('Session started.')).toBeInTheDocument();
+  });
+
+  it('renders without crashing in executive density', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="executive" />);
+    expect(screen.getByText('Support Chat')).toBeInTheDocument();
+  });
+
+  it('renders without crashing in expert density', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="expert" />);
+    expect(screen.getByText('Support Chat')).toBeInTheDocument();
+  });
+
+  it('shows attachment in expert density', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="expert" />);
+    expect(screen.getByText('invoice.pdf')).toBeInTheDocument();
+  });
+
+  it('calls onExplain for messages with explainElementId', () => {
+    const onExplain = vi.fn();
+    render(<ChatRenderer data={CHAT_DATA} density="expert" onExplain={onExplain} />);
+    const whyBtn = screen.queryByText('Why?');
+    if (whyBtn) {
+      fireEvent.click(whyBtn);
+      expect(onExplain).toHaveBeenCalledWith('refund-explain');
+    }
+  });
+
+  it('shows input bar in operator density', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  });
+
+  it('hides input bar in executive density', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="executive" />);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('shows send button', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
+  });
+
+  it('calls onSendMessage when message is typed and sent', () => {
+    const onSendMessage = vi.fn();
+    render(<ChatRenderer data={CHAT_DATA} density="operator" onSendMessage={onSendMessage} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'test message' } });
+    const sendBtn = screen.getByRole('button', { name: /send message/i });
+    fireEvent.click(sendBtn);
+    expect(onSendMessage).toHaveBeenCalledWith('test message');
+  });
+
+  it('shows attach button when allowAttachments is true', () => {
+    render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    expect(screen.getByTitle('Attach file')).toBeInTheDocument();
+  });
+
+  it('hides attach button when allowAttachments is false', () => {
+    const data = { ...CHAT_DATA, allowAttachments: false };
+    render(<ChatRenderer data={data} density="operator" />);
+    expect(screen.queryByTitle('Attach file')).not.toBeInTheDocument();
+  });
+
+  it('renders empty state with no messages', () => {
+    render(<ChatRenderer data={{ messages: [] }} density="operator" />);
+    expect(screen.getByText(/No messages yet/i)).toBeInTheDocument();
+  });
+
+  it('shows error for invalid data', () => {
+    render(<ChatRenderer data={{ wrong: true }} density="operator" />);
+    expect(screen.getByText(/Invalid chat data/i)).toBeInTheDocument();
+  });
+
+  it('hides input bar in readOnly mode', () => {
+    const data = { ...CHAT_DATA, readOnly: true };
+    render(<ChatRenderer data={data} density="operator" />);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 });

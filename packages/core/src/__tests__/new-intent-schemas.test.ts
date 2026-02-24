@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Schema tests — Timeline, Workflow, Kanban, Calendar, Tree
+// Schema tests — Timeline, Workflow, Kanban, Calendar, Tree, Chat
 //
 // Covers schema validation, default application, and boundary conditions for
-// the five intent-type schemas added in v0.2.
+// the six intent-type schemas added in v0.2–v0.3.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { describe, it, expect } from 'vitest';
@@ -11,6 +11,12 @@ import {
   TimelineEventSchema,
   TimelineDataSchema,
 } from '../schemas/timeline';
+
+import {
+  ChatMessageSchema,
+  ChatAttachmentSchema,
+  ChatDataSchema,
+} from '../schemas/chat';
 
 import {
   WorkflowStepSchema,
@@ -545,5 +551,152 @@ describe('TreeDataSchema', () => {
     };
     const result = TreeDataSchema.parse(data);
     expect(result.nodes[0].children).toHaveLength(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ChatAttachmentSchema
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ChatAttachmentSchema', () => {
+  it('parses a minimal attachment', () => {
+    const result = ChatAttachmentSchema.safeParse({ id: 'att-1', name: 'file.pdf', type: 'application/pdf' });
+    expect(result.success).toBe(true);
+  });
+
+  it('parses all optional fields', () => {
+    const result = ChatAttachmentSchema.safeParse({
+      id: 'att-1',
+      name: 'screenshot.png',
+      type: 'image/png',
+      size: '256 KB',
+      url: 'https://example.com/screenshot.png',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing id, name, or type', () => {
+    expect(ChatAttachmentSchema.safeParse({ name: 'x', type: 'text/plain' }).success).toBe(false);
+    expect(ChatAttachmentSchema.safeParse({ id: 'x', type: 'text/plain' }).success).toBe(false);
+    expect(ChatAttachmentSchema.safeParse({ id: 'x', name: 'x' }).success).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ChatMessageSchema
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ChatMessageSchema', () => {
+  const MINIMAL: unknown = {
+    id: 'msg-1',
+    role: 'user',
+    content: 'Hello!',
+    timestamp: 1740394800000,
+  };
+
+  it('parses a minimal message with defaults', () => {
+    const result = ChatMessageSchema.parse(MINIMAL);
+    expect(result.status).toBe('sent');
+    expect(result.attachments).toEqual([]);
+  });
+
+  it('accepts all valid roles', () => {
+    for (const role of ['user', 'agent', 'system']) {
+      expect(ChatMessageSchema.safeParse({ ...MINIMAL, role }).success).toBe(true);
+    }
+  });
+
+  it('rejects invalid role', () => {
+    expect(ChatMessageSchema.safeParse({ ...MINIMAL, role: 'bot' }).success).toBe(false);
+  });
+
+  it('accepts all valid statuses', () => {
+    for (const status of ['sent', 'streaming', 'error']) {
+      expect(ChatMessageSchema.safeParse({ ...MINIMAL, status }).success).toBe(true);
+    }
+  });
+
+  it('rejects invalid status', () => {
+    expect(ChatMessageSchema.safeParse({ ...MINIMAL, status: 'pending' }).success).toBe(false);
+  });
+
+  it('parses all optional fields', () => {
+    const full = {
+      ...MINIMAL,
+      status: 'sent',
+      attachments: [{ id: 'att-1', name: 'file.pdf', type: 'application/pdf' }],
+      metadata: { model: 'claude-sonnet-4-6' },
+      explainElementId: 'exp-1',
+    };
+    const result = ChatMessageSchema.safeParse(full);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.attachments).toHaveLength(1);
+      expect(result.data.metadata?.model).toBe('claude-sonnet-4-6');
+    }
+  });
+
+  it('rejects missing id, role, content, or timestamp', () => {
+    expect(ChatMessageSchema.safeParse({ role: 'user', content: 'x', timestamp: 0 }).success).toBe(false);
+    expect(ChatMessageSchema.safeParse({ id: 'x', content: 'x', timestamp: 0 }).success).toBe(false);
+    expect(ChatMessageSchema.safeParse({ id: 'x', role: 'user', timestamp: 0 }).success).toBe(false);
+    expect(ChatMessageSchema.safeParse({ id: 'x', role: 'user', content: 'x' }).success).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ChatDataSchema
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ChatDataSchema', () => {
+  it('parses with defaults', () => {
+    const result = ChatDataSchema.parse({ messages: [] });
+    expect(result.inputPlaceholder).toBe('Type a message…');
+    expect(result.allowAttachments).toBe(false);
+    expect(result.readOnly).toBe(false);
+    expect(result.streamingMessageId).toBeUndefined();
+  });
+
+  it('requires messages array', () => {
+    expect(ChatDataSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('parses messages with all roles', () => {
+    const data = {
+      messages: [
+        { id: 'm1', role: 'system', content: 'Session started', timestamp: 1000 },
+        { id: 'm2', role: 'agent', content: 'Hello', timestamp: 2000 },
+        { id: 'm3', role: 'user', content: 'Hi', timestamp: 3000 },
+      ],
+    };
+    const result = ChatDataSchema.safeParse(data);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.messages).toHaveLength(3);
+    }
+  });
+
+  it('parses optional fields', () => {
+    const data = {
+      messages: [],
+      title: 'Support Chat',
+      streamingMessageId: 'msg-5',
+      inputPlaceholder: 'Ask me anything…',
+      allowAttachments: true,
+      readOnly: true,
+    };
+    const result = ChatDataSchema.parse(data);
+    expect(result.title).toBe('Support Chat');
+    expect(result.streamingMessageId).toBe('msg-5');
+    expect(result.allowAttachments).toBe(true);
+    expect(result.readOnly).toBe(true);
+  });
+
+  it('accepts empty messages array', () => {
+    expect(ChatDataSchema.safeParse({ messages: [] }).success).toBe(true);
+  });
+
+  it('rejects non-array messages', () => {
+    expect(ChatDataSchema.safeParse({ messages: 'not-an-array' }).success).toBe(false);
   });
 });

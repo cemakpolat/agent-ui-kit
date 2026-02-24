@@ -83,7 +83,7 @@
 ### New Intent Types
 - [x] **Workflow** — multi-step guided processes (schema + renderer + onboarding scenario)
 - [x] **Timeline** — chronological event visualization (schema + renderer + deploy history scenario)
-- [ ] **Chat/Conversation** — conversational UI pattern
+- [x] **Chat/Conversation** — conversational UI pattern (schema + renderer + support chat scenario, streaming support, attachments, density-aware)
 - [x] **Kanban** — task board visualization (schema + renderer + sprint board scenario)
 - [x] **Calendar** — event scheduling and planning (month/week/agenda views, density-aware)
 - [x] **Tree/Hierarchy** — organizational structure visualization (interactive expand/collapse, search, breadcrumb)
@@ -211,4 +211,4 @@ Track user-requested features here:
 
 ---
 
-*Last updated: 2026-02-23 (v0.2.3)*
+*Last updated: 2026-02-24 (v0.3.0 — Chat/Conversation intent type)*
