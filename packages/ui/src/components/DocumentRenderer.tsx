@@ -16,7 +16,7 @@
 //   where DocumentWrapper reads data.showConfidence from ambiguity controls.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DocumentDataSchema } from '@hari/core';
 import type { DocumentBlock, DocumentSection, DocumentData } from '@hari/core';
 
@@ -360,8 +360,114 @@ function ListBlock({ items, ordered }: { items: string[]; ordered: boolean }) {
   );
 }
 
+// ── Syntax highlighting ───────────────────────────────────────────────────────
+
+type SyntaxTokenType = 'keyword' | 'string' | 'number' | 'comment' | 'plain';
+
+interface SyntaxToken {
+  type: SyntaxTokenType;
+  value: string;
+}
+
+const KW_TS = ['abstract', 'any', 'as', 'async', 'await', 'boolean', 'break', 'case', 'catch', 'class', 'const', 'continue', 'default', 'delete', 'do', 'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'from', 'function', 'if', 'implements', 'import', 'in', 'instanceof', 'interface', 'keyof', 'let', 'never', 'new', 'null', 'number', 'object', 'of', 'private', 'protected', 'public', 'readonly', 'return', 'static', 'string', 'super', 'switch', 'this', 'throw', 'true', 'try', 'type', 'typeof', 'undefined', 'var', 'void', 'while'];
+const KW_PY = ['and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'None', 'nonlocal', 'not', 'or', 'pass', 'print', 'raise', 'return', 'True', 'try', 'while', 'with', 'yield'];
+const KW_BASH = ['case', 'do', 'done', 'echo', 'elif', 'else', 'esac', 'exit', 'export', 'fi', 'for', 'function', 'if', 'in', 'local', 'return', 'then', 'until', 'while'];
+
+/** Tokenize source code into syntax token spans for a given language. */
+export function syntaxTokenize(code: string, language?: string): SyntaxToken[] {
+  const lang = (language ?? '').toLowerCase();
+  const isPy = lang === 'python' || lang === 'py';
+  const isBash = lang === 'bash' || lang === 'sh' || lang === 'shell';
+  const isJson = lang === 'json';
+  const isTs = !isPy && !isBash && !isJson;
+
+  type PatternDef = { re: string; type: SyntaxTokenType };
+  const patterns: PatternDef[] = [];
+
+  // Comments (highest priority — swallow everything else)
+  if (isPy || isBash) {
+    patterns.push({ re: '#[^\\n]*', type: 'comment' });
+  } else if (!isJson) {
+    patterns.push({ re: '\\/\\/[^\\n]*', type: 'comment' });
+    patterns.push({ re: '\\/\\*[\\s\\S]*?\\*\\/', type: 'comment' });
+  }
+
+  // Strings
+  patterns.push({ re: '"(?:\\\\.|[^"\\\\])*"', type: 'string' });
+  patterns.push({ re: "'(?:\\\\.|[^'\\\\])*'", type: 'string' });
+  if (isTs) {
+    patterns.push({ re: '`(?:\\\\.|[^`\\\\])*`', type: 'string' });
+  }
+
+  // Numbers
+  patterns.push({ re: '\\b0x[\\da-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b', type: 'number' });
+
+  // Keywords
+  const kwList = isPy ? KW_PY : isBash ? KW_BASH : isTs ? KW_TS : null;
+  if (kwList) {
+    patterns.push({ re: `\\b(?:${kwList.join('|')})\\b`, type: 'keyword' });
+  }
+
+  if (!patterns.length) return [{ type: 'plain', value: code }];
+
+  const combined = new RegExp(patterns.map((p) => `(${p.re})`).join('|'), 'gm');
+  const tokens: SyntaxToken[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  combined.lastIndex = 0;
+
+  while ((match = combined.exec(code)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push({ type: 'plain', value: code.slice(lastIndex, match.index) });
+    }
+    const groupIdx = match.slice(1).findIndex((g) => g !== undefined);
+    tokens.push({ type: patterns[groupIdx].type, value: match[0] });
+    lastIndex = match.index + match[0].length;
+    if (match[0].length === 0) combined.lastIndex++;
+  }
+
+  if (lastIndex < code.length) {
+    tokens.push({ type: 'plain', value: code.slice(lastIndex) });
+  }
+  return tokens;
+}
+
+// Token colours for dark / light themes
+const TOKEN_DARK: Record<SyntaxTokenType, React.CSSProperties> = {
+  keyword:  { color: '#c084fc' },
+  string:   { color: '#86efac' },
+  number:   { color: '#fdba74' },
+  comment:  { color: '#64748b', fontStyle: 'italic' },
+  plain:    { color: '#e2e8f0' },
+};
+const TOKEN_LIGHT: Record<SyntaxTokenType, React.CSSProperties> = {
+  keyword:  { color: '#7c3aed' },
+  string:   { color: '#166534' },
+  number:   { color: '#c2410c' },
+  comment:  { color: '#94a3b8', fontStyle: 'italic' },
+  plain:    { color: '#1e293b' },
+};
+
+function usePrefersDark(): boolean {
+  const mq = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const [dark, setDark] = useState(mq?.matches ?? false);
+  useEffect(() => {
+    if (!mq) return;
+    const handler = (e: MediaQueryListEvent) => setDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [mq]);
+  return dark;
+}
+
 function CodeBlock({ code, language }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false);
+  const prefersDark = usePrefersDark();
+  const tokenColors = prefersDark ? TOKEN_DARK : TOKEN_LIGHT;
+  const bgColor = prefersDark ? '#0f172a' : '#f8fafc';
+  const borderColor = prefersDark ? '#1e293b' : '#e2e8f0';
+
+  const tokens = useMemo(() => syntaxTokenize(code, language), [code, language]);
 
   const handleCopy = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -391,16 +497,19 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
           margin: 0,
           padding: '0.75rem',
           paddingRight: '4.5rem', // space for copy button
-          backgroundColor: '#0f172a',
+          backgroundColor: bgColor,
           borderRadius: language ? '0 0.375rem 0.375rem 0.375rem' : '0.375rem',
-          border: '1px solid #1e293b',
+          border: `1px solid ${borderColor}`,
           fontSize: '0.72rem',
-          color: '#e2e8f0',
           overflowX: 'auto',
           lineHeight: 1.6,
           whiteSpace: 'pre',
         }}>
-          <code>{code}</code>
+          <code>
+            {tokens.map((tok, i) => (
+              <span key={i} style={tokenColors[tok.type]}>{tok.value}</span>
+            ))}
+          </code>
         </pre>
         <button
           onClick={handleCopy}

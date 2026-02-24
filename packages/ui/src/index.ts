@@ -24,7 +24,7 @@ export { SensorCard } from './components/domain/iot/SensorCard';
 export type { SensorReading } from './components/domain/iot/SensorCard';
 
 // Domain components — documents
-export { DocumentRenderer } from './components/DocumentRenderer';
+export { DocumentRenderer, syntaxTokenize } from './components/DocumentRenderer';
 export type { DocumentRendererProps } from './components/DocumentRenderer';
 
 // Domain components — forms

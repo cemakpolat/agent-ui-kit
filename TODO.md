@@ -68,6 +68,9 @@
 ### Developer Experience (v0.3.1)
 - [x] **Component Playground** (§10b) — interactive JSON editor in demo app: paste any intent payload, get live schema validation feedback + rendered output side-by-side; 12 IntentPayloadSchema round-trip tests added (core total: 349)
 
+### Enhanced Document Capabilities (v0.3.2)
+- [x] **Syntax highlighting** (§2b) — lightweight regex tokenizer in `DocumentRenderer` (no library); TS/JS/TSX/JSX, Python, Bash/Shell, JSON; keyword/string/number/comment token colours; `prefers-color-scheme` dark/light theme; 30 unit tests added (`syntax-highlight.test.ts`; UI total: 145)
+
 ---
 
 ## 📋 Planned (v0.4 - Future)
@@ -82,7 +85,7 @@
 - [x] Autocomplete/typeahead fields with async data (done — `autocomplete` field type)
 
 ### Enhanced Document Capabilities
-- [ ] Interactive code blocks with syntax highlighting library integration
+- [x] Interactive code blocks with syntax highlighting (done — inline regex tokenizer, `syntaxTokenize` export)
 - [ ] Full charting library integration (e.g., Recharts, Chart.js) — custom SVG charts exist; external library would add scatter/area
 - [x] Table sorting and filtering (done — column sort, filter input > 4 rows)
 - [x] Expandable/collapsible sections (done — `collapsible`/`defaultCollapsed` flags)
@@ -221,4 +224,4 @@ Track user-requested features here:
 
 ---
 
-*Last updated: 2026-02-24 (v0.3.1 — Component Playground + TODO audit of already-completed features)*
+*Last updated: 2026-02-24 (v0.3.2 — Syntax highlighting for code blocks)*
