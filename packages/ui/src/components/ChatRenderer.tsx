@@ -419,8 +419,32 @@ export function ChatRenderer({ data, density = 'operator', onExplain, onSendMess
         @media (prefers-reduced-motion: reduce) { .chat-cursor { animation: none !important; } }
       `}</style>
 
-      {/* Message list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem' }}>
+      {/* Visually-hidden live region: announces "Agent is typing" during streaming */}
+      <span
+        aria-live="assertive"
+        aria-atomic="true"
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          borderWidth: 0,
+        }}
+      >
+        {streamingMessageId ? 'Agent is typing' : ''}
+      </span>
+
+      {/* Message list — aria-live so new messages are announced to screen readers */}
+      <div
+        aria-live="polite"
+        aria-atomic="false"
+        aria-label="Conversation messages"
+        style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem' }}
+      >
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem', fontSize: '0.875rem' }}>
             No messages yet.

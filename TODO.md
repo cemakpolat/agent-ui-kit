@@ -103,7 +103,7 @@
 
 ### Accessibility (WCAG 2.2 AA)
 - [x] Comprehensive keyboard navigation (Enter/Space on Calendar events, h3 collapsible in DocumentRenderer, tabIndex on interactive divs)
-- [ ] Screen reader optimization (live regions for streaming, form errors)
+- [x] Screen reader optimization (live regions for streaming, form errors)
 - [ ] Focus management improvements (return focus to trigger on modal/drawer close)
 - [x] ARIA label completeness check (all renderers: Why?, Attach, Send, Expand/Collapse, Export, Print, step nav — v0.3.3)
 - [ ] Color contrast verification (min 4.5:1 normal text, 3:1 large text)
@@ -224,4 +224,4 @@ Track user-requested features here:
 
 ---
 
-*Last updated: 2026-02-24 (v0.3.4 — schema migration utilities §8; scatter chart SVG with proper axes)*
+*Last updated: 2026-02-24 (v0.3.5 — screen reader live regions: aria-live on ChatRenderer message list + WorkflowRenderer step announcements; 6 new a11y tests; 182 UI / 388 core)*

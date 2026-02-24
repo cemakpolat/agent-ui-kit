@@ -188,6 +188,29 @@ describe('ChatRenderer accessibility', () => {
     const input = screen.getByRole('textbox', { name: 'Message input' });
     expect(input).toBeDefined();
   });
+
+  it('message list has aria-live="polite" for new message announcements', () => {
+    const { container } = render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    const live = container.querySelector('[aria-live="polite"][aria-label="Conversation messages"]');
+    expect(live).not.toBeNull();
+    expect(live?.getAttribute('aria-atomic')).toBe('false');
+  });
+
+  it('streaming status region has aria-live="assertive" with "Agent is typing" text', () => {
+    const { container } = render(<ChatRenderer data={CHAT_DATA} density="operator" />);
+    // CHAT_DATA has streamingMessageId set, so the region should say "Agent is typing"
+    const liveRegion = container.querySelector('[aria-live="assertive"]');
+    expect(liveRegion).not.toBeNull();
+    expect(liveRegion?.textContent?.trim()).toBe('Agent is typing');
+  });
+
+  it('streaming status region is empty when no message is streaming', () => {
+    const noStreamData = { ...CHAT_DATA, streamingMessageId: undefined };
+    const { container } = render(<ChatRenderer data={noStreamData} density="operator" />);
+    const liveRegion = container.querySelector('[aria-live="assertive"]');
+    expect(liveRegion).not.toBeNull();
+    expect(liveRegion?.textContent?.trim()).toBe('');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -352,6 +375,30 @@ describe('WorkflowRenderer accessibility', () => {
     render(<WorkflowRenderer data={WORKFLOW_DATA} density="operator" />);
     const inactiveBtn = screen.getByRole('button', { name: 'Go to step 2: Verification' });
     expect(inactiveBtn.getAttribute('aria-current')).toBeNull();
+  });
+
+  it('has a aria-live="polite" region announcing the current step', () => {
+    const { container } = render(<WorkflowRenderer data={WORKFLOW_DATA} density="operator" />);
+    const liveRegion = container.querySelector('[aria-live="polite"][aria-atomic="true"]');
+    expect(liveRegion).not.toBeNull();
+    expect(liveRegion?.textContent?.trim()).toBe('Step 1 of 2: Profile');
+  });
+
+  it('live region updates with new step title when navigating', () => {
+    const { container } = render(
+      <WorkflowRenderer data={{ ...WORKFLOW_DATA, allowSkipAhead: true }} density="operator" />,
+    );
+    // Navigate to step 2 via its sidebar button
+    fireEvent.click(screen.getByRole('button', { name: 'Go to step 2: Verification' }));
+    const liveRegion = container.querySelector('[aria-live="polite"][aria-atomic="true"]');
+    expect(liveRegion?.textContent?.trim()).toBe('Step 2 of 2: Verification');
+  });
+
+  it('executive density also has aria-live step announcement', () => {
+    const { container } = render(<WorkflowRenderer data={WORKFLOW_DATA} density="executive" />);
+    const liveRegion = container.querySelector('[aria-live="polite"][aria-atomic="true"]');
+    expect(liveRegion).not.toBeNull();
+    expect(liveRegion?.textContent?.trim()).toBe('Step 1 of 2: Profile');
   });
 });
 
