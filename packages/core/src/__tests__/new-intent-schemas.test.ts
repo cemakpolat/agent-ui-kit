@@ -46,7 +46,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('TimelineEventSchema', () => {
-  const MINIMAL: unknown = {
+  const MINIMAL: Record<string, unknown> = {
     id: 'ev-1',
     title: 'Deploy v1.0',
     timestamp: '2026-02-23T10:00:00',
@@ -144,7 +144,7 @@ describe('TimelineDataSchema', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('WorkflowStepSchema', () => {
-  const MINIMAL_STEP: unknown = {
+  const MINIMAL_STEP: Record<string, unknown> = {
     id: 'step-1',
     title: 'Introduction',
   };
@@ -238,7 +238,7 @@ describe('WorkflowDataSchema', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('KanbanCardSchema', () => {
-  const MINIMAL: unknown = { id: 'card-1', title: 'Fix bug' };
+  const MINIMAL: Record<string, unknown> = { id: 'card-1', title: 'Fix bug' };
 
   it('parses a minimal card with defaults', () => {
     const result = KanbanCardSchema.parse(MINIMAL);
@@ -343,7 +343,7 @@ describe('KanbanDataSchema', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('CalendarEventSchema', () => {
-  const MINIMAL: unknown = {
+  const MINIMAL: Record<string, unknown> = {
     id: 'evt-1',
     title: 'Team standup',
     start: '2026-02-23T09:00:00',
@@ -450,7 +450,7 @@ describe('CalendarDataSchema', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('TreeNodeSchema', () => {
-  const MINIMAL: unknown = { id: 'node-1', label: 'Root' };
+  const MINIMAL: Record<string, unknown> = { id: 'node-1', label: 'Root' };
 
   it('parses a minimal node', () => {
     expect(TreeNodeSchema.safeParse(MINIMAL).success).toBe(true);
@@ -589,7 +589,7 @@ describe('ChatAttachmentSchema', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('ChatMessageSchema', () => {
-  const MINIMAL: unknown = {
+  const MINIMAL: Record<string, unknown> = {
     id: 'msg-1',
     role: 'user',
     content: 'Hello!',

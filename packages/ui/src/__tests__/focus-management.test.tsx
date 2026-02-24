@@ -19,6 +19,7 @@ import type { ExplainabilityContext } from '@hari/core';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EXPLAIN_CTX: ExplainabilityContext = {
+  elementId: 'test-element',
   summary: 'Test summary',
   dataSources: [],
   assumptions: ['A is true'],

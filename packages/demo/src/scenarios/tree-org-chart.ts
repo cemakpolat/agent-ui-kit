@@ -194,16 +194,10 @@ export const treeOrgChartIntent: IntentPayloadInput = {
   },
 
   explainability: {
-    title: 'Why is this org chart shown?',
-    summary: 'The agent retrieved the current organisational structure from the HR system and rendered it as an interactive hierarchy.',
-    confidence: 0.98,
-    elements: {
-      'platform-explain': {
-        label: 'Platform Engineering',
-        reasoning: 'Platform Eng was highlighted because it has 3 open roles, which is above the 10% vacancy threshold that triggers agent attention.',
-        confidence: 0.95,
-        sources: [{ label: 'HR system', url: '#' }],
-      },
+    'platform-explain': {
+      elementId: 'platform-explain',
+      summary: 'Platform Eng was highlighted because it has 3 open roles, which is above the 10% vacancy threshold that triggers agent attention.',
+      dataSources: [{ name: 'HR system', type: 'api' }],
     },
   },
 };

@@ -5,6 +5,7 @@ export { ExplainPanel } from './components/ExplainPanel';
 export { AmbiguityControls } from './components/AmbiguityControls';
 export { IntentErrorBoundary } from './components/IntentErrorBoundary';
 export { HypotheticalOverlay } from './components/HypotheticalOverlay';
+export { HypotheticalCompare } from './components/HypotheticalCompare';
 export { DensitySelector } from './components/primitives/DensitySelector';
 
 // Domain components — travel

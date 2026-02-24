@@ -108,33 +108,31 @@ export const chatSupportIntent: IntentPayloadInput = {
   },
 
   explainability: {
-    title: 'Why is this chat shown?',
-    summary: 'The agent detected a billing anomaly on your account and initiated a support session to resolve a duplicate charge.',
-    confidence: 0.95,
-    elements: {
-      'refund-explain': {
-        label: 'Refund decision',
-        reasoning: 'Our billing system detected two identical charges (same amount, same billing period) within 24 hours. Per policy, duplicate charges are automatically eligible for refund without additional approval. The refund was initiated automatically and flagged to our finance team.',
-        confidence: 0.99,
-        sources: [
-          { label: 'Billing policy v3.2', url: '#' },
-          { label: 'Transaction log', url: '#' },
-        ],
-      },
+    'refund-explain': {
+      elementId: 'refund-explain',
+      summary: 'Our billing system detected two identical charges (same amount, same billing period) within 24 hours. Per policy, duplicate charges are automatically eligible for refund without additional approval. The refund was initiated automatically and flagged to our finance team.',
+      dataSources: [
+        { name: 'Billing policy v3.2', type: 'database' },
+        { name: 'Transaction log', type: 'database' },
+      ],
     },
   },
 
   actions: [
     {
-      actionId: 'end-session',
+      id: 'end-session',
       label: 'End Session',
       description: 'Close this support chat session',
-      verb: 'close',
-      target: 'support-session-84291',
-      reversible: true,
-      blastRadius: {
-        scope: 'self',
-        affectedSystems: ['support-portal'],
+      variant: 'secondary',
+      safety: {
+        confidence: 0.99,
+        reversible: true,
+        riskLevel: 'low',
+        requiresConfirmation: false,
+        blastRadius: {
+          scope: 'self',
+          affectedSystems: ['support-portal'],
+        },
       },
     },
   ],

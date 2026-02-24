@@ -1,6 +1,5 @@
 import { v4 as uuid } from 'uuid';
 import type { IntentPayloadInput } from '@hari/core';
-import type { DocumentData } from '@hari/core';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AI-generated SRE Post-Mortem — "living document" demo scenario.
@@ -13,7 +12,7 @@ import type { DocumentData } from '@hari/core';
 //   - Actions: acknowledge the report, escalate, export
 // ─────────────────────────────────────────────────────────────────────────────
 
-const documentData: DocumentData = {
+const documentData = {
   title: 'Incident Post-Mortem: Database Replication Lag',
   author: 'AI SRE Assistant',
   publishedAt: '2026-02-22T07:42:00Z',

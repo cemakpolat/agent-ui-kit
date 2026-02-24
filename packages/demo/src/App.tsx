@@ -15,6 +15,7 @@ import {
   DensitySelector,
   IntentErrorBoundary,
   HypotheticalOverlay,
+  HypotheticalCompare,
   useAgentBridge,
 } from '@hari/ui';
 import { registry } from './registry';
@@ -31,6 +32,7 @@ import { workflowOnboardingIntent } from './scenarios/workflow-onboarding';
 import { kanbanSprintIntent } from './scenarios/kanban-sprint';
 import { chatSupportIntent } from './scenarios/chat-support';
 import { PayloadPlayground } from './components/PayloadPlayground';
+import { IntentPayloadBuilder } from './components/IntentPayloadBuilder';
 import {
   makeIotMutator,
   makeCloudopsMutator,
@@ -98,14 +100,20 @@ const LIVE_MUTATORS: Record<string, (() => (intent: import('@hari/core').IntentP
 const LIVE_UPDATE_INTERVAL_MS = 2000;
 
 export function App() {
-  const [activeView, setActiveView] = React.useState<'demo' | 'playground'>('demo');
+  const [activeView, setActiveView] = React.useState<'demo' | 'playground' | 'builder'>('demo');
   const [activeScenario, setActiveScenario] = React.useState<string>('travel');
   const [log, setLog] = React.useState<string[]>([]);
   const [hypotheticalQuery, setHypotheticalQuery] = React.useState<string | null>(null);
   const [versionWarning, setVersionWarning] = React.useState<string | null>(null);
   const [isLive, setIsLive] = React.useState(false);
 
-  const { currentIntent, commitModifications, modifyParameter } = useIntentStore();
+  const {
+    currentIntent,
+    commitModifications,
+    modifyParameter,
+    hypotheticalIntent,
+    branchHypothetical,
+  } = useIntentStore();
   const { densityOverride, setHypotheticalMode } = useUIStore();
 
   const addLog = React.useCallback((msg: string) =>
@@ -242,7 +250,7 @@ export function App() {
 
         {/* View toggle: Demo vs Playground */}
         <div style={{ display: 'flex', gap: '0.375rem', borderRight: '1px solid #334155', paddingRight: '0.75rem', marginRight: '0.25rem' }}>
-          {(['demo', 'playground'] as const).map((view) => (
+          {(['demo', 'playground', 'builder'] as const).map((view) => (
             <button key={view} onClick={() => setActiveView(view)} style={{
               padding: '0.375rem 0.875rem', borderRadius: '0.375rem', border: 'none',
               backgroundColor: activeView === view ? '#312e81' : '#1e293b',
@@ -250,7 +258,7 @@ export function App() {
               fontWeight: activeView === view ? 700 : 400,
               cursor: 'pointer', fontSize: '0.8rem', textTransform: 'capitalize',
             }}>
-              {view === 'playground' ? '🧩 Playground' : '▶ Demo'}
+              {view === 'playground' ? '🧩 Playground' : view === 'builder' ? '🔧 Builder' : '▶ Demo'}
             </button>
           ))}
         </div>
@@ -302,6 +310,24 @@ export function App() {
             </button>
           )}
           <ConnectionBadge state={connectionState} />
+          {compiled && currentIntent && !hypotheticalIntent && (
+            <button
+              onClick={() => { branchHypothetical(); addLog('[hypothetical] Branch created from currentIntent'); }}
+              title="Create an isolated what-if branch from the current intent"
+              style={{
+                padding: '0.375rem 0.75rem',
+                borderRadius: '0.375rem',
+                border: '1px solid #a78bfa',
+                backgroundColor: '#1e293b',
+                color: '#c4b5fd',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.72rem',
+              }}
+            >
+              ⎇ Branch
+            </button>
+          )}
           {compiled && <DensitySelector agentRecommended={compiled.density} />}
         </div>
       </header>
@@ -322,6 +348,13 @@ export function App() {
       {activeView === 'playground' && (
         <main style={{ flex: 1 }}>
           <PayloadPlayground />
+        </main>
+      )}
+
+      {/* ── Builder view ─────────────────────────────────────────────── */}
+      {activeView === 'builder' && (
+        <main style={{ flex: 1 }}>
+          <IntentPayloadBuilder />
         </main>
       )}
 
@@ -382,12 +415,21 @@ export function App() {
           </IntentErrorBoundary>
 
           {/* Hypothetical overlay — uses bridge.queryWhatIf() when connected */}
-          {hypotheticalQuery && (
+          {hypotheticalQuery && !hypotheticalIntent && (
             <HypotheticalOverlay
               query={hypotheticalQuery}
               onDismiss={dismissHypothetical}
               bridge={connectionState === 'connected' ? bridge : undefined}
               intentSnapshot={currentIntent ?? undefined}
+            />
+          )}
+
+          {/* Hypothetical branch compare — side-by-side actual vs branched state */}
+          {hypotheticalIntent && (
+            <HypotheticalCompare
+              registry={registry}
+              onCommit={() => addLog('[hypothetical] Branch committed → became currentIntent')}
+              onRollback={() => addLog('[hypothetical] Branch rolled back → discarded')}
             />
           )}
         </div>

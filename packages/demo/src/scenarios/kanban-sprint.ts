@@ -238,22 +238,15 @@ export const kanbanSprintIntent: IntentPayloadInput = {
   },
 
   explainability: {
-    title: 'Why is this board shown?',
-    summary: 'You asked about the current sprint status for Platform Engineering. The agent retrieved Sprint 17 data from the project tracker and rendered it as a kanban board.',
-    confidence: 0.97,
-    elements: {
-      'gw-441-explain': {
-        label: 'GW-441 is critical',
-        reasoning: 'This card resolves the P1 incident from 2026-02-18 (INC-0412) that caused 47 min of elevated errors on US-EAST. It is the highest-priority item on the board and is currently in canary.',
-        confidence: 0.99,
-        sources: [{ label: 'Incident INC-0412', url: '#' }, { label: 'JIRA GW-441', url: '#' }],
-      },
-      'dp-071-explain': {
-        label: 'DP-071 is blocked',
-        reasoning: 'GDPR row-level security requires Legal sign-off before the filtering policy can go live in production. Without it the feature cannot be deployed, and the compliance deadline is 2026-03-31.',
-        confidence: 0.95,
-        sources: [{ label: 'JIRA DP-071', url: '#' }],
-      },
+    'gw-441-explain': {
+      elementId: 'gw-441-explain',
+      summary: 'This card resolves the P1 incident from 2026-02-18 (INC-0412) that caused 47 min of elevated errors on US-EAST. It is the highest-priority item on the board and is currently in canary.',
+      dataSources: [{ name: 'Incident INC-0412', type: 'api' }, { name: 'JIRA GW-441', type: 'api' }],
+    },
+    'dp-071-explain': {
+      elementId: 'dp-071-explain',
+      summary: 'GDPR row-level security requires Legal sign-off before the filtering policy can go live in production. Without it the feature cannot be deployed, and the compliance deadline is 2026-03-31.',
+      dataSources: [{ name: 'JIRA DP-071', type: 'api' }],
     },
   },
 };

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import {
   IntentPayloadSchema,
   compileIntent,
-  type IntentPayloadInput,
+  type IntentPayload,
 } from '@hari/core';
 import { IntentRenderer, IntentErrorBoundary } from '@hari/ui';
 import { registry } from '../registry';
@@ -131,7 +131,7 @@ const STARTER_TEMPLATES: Record<string, string> = {
 interface ValidationResult {
   ok: boolean;
   errors: string[];
-  payload: IntentPayloadInput | null;
+  payload: IntentPayload | null;
 }
 
 function validateJson(text: string): ValidationResult {
@@ -144,7 +144,7 @@ function validateJson(text: string): ValidationResult {
 
   const result = IntentPayloadSchema.safeParse(parsed);
   if (result.success) {
-    return { ok: true, errors: [], payload: result.data as IntentPayloadInput };
+    return { ok: true, errors: [], payload: result.data };
   }
 
   // Collect Zod error paths + messages

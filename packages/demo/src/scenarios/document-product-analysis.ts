@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import type { IntentPayloadInput, DocumentData } from '@hari/core';
+import type { IntentPayloadInput } from '@hari/core';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enhanced Document scenario: "Q4 Product Performance Analysis"
@@ -16,7 +16,7 @@ import type { IntentPayloadInput, DocumentData } from '@hari/core';
 // that agents can generate for reports, documentation, and analysis.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const documentData: DocumentData = {
+const documentData = {
   title: 'Q4 2025 Product Performance Analysis',
   author: 'AI Product Analytics Assistant',
   publishedAt: '2026-02-22T10:00:00Z',
