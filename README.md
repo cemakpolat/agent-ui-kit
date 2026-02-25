@@ -6,6 +6,8 @@
 
 **HARI enables bidirectional human-agent interaction** — agents can propose comparisons, diagnostics, forms, reports, or any interface pattern needed for the task, while users can provide structured input, clarify intent, and negotiate understanding through lightweight controls.
 
+📋 **[For detailed implementation notes, see IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** — forms, documents, new scenarios, and architecture updates as of 2026-02-22.
+
 ---
 
 ## Core Idea
@@ -169,15 +171,33 @@ pnpm build
 
 ---
 
-## Next Steps (Phases 3–4 from the spec)
+## Implementation Status
 
-- [ ] Trust & interaction validation — user testing of blast radius comprehension
-- [ ] Streaming JSON parser integration (progressive intent rendering)
-- [ ] Real MCP integration (2–3 connectors)
-- [ ] Schema versioning + capability discovery protocol
-- [ ] Hypothetical mode — isolated "what-if" overlay that doesn't mutate main view state
-- [ ] Living documents — versioned, refreshable report snapshots
-- [ ] Accessibility audit (WCAG 2.2 AA)
+**v0.1 (Complete):** Core architecture, schemas, and components
+- ✅ Intent-driven UI compilation
+- ✅ All 6 interaction patterns (comparisons, diagnostics, documents, forms, ambiguity controls, actions)
+- ✅ Form system (9 field types, validation, conditional visibility)
+- ✅ Document system (12 block types, tables, charts, quotes, embeds)
+- ✅ Action safety with blast radius visualization
+- ✅ Confidence indicators and explainability contexts
+- ✅ Demo scenarios (travel, CloudOps, IoT, deployment forms, analytics reports)
+- ✅ Full TypeScript type coverage
+
+**v0.2 (Planned):** Demo integration & testing
+- [ ] Wire form and document scenarios into App.tsx
+- [ ] Register FormRenderer in component registry
+- [ ] Unit tests for form validation and document rendering
+- [ ] Manual integration testing across all scenarios
+
+**v0.3+ (Future):** Advanced features
+- [ ] File upload with preview and progress
+- [ ] Real charting library integration (Recharts)
+- [ ] Streaming JSON parser (progressive intent rendering)
+- [ ] Real MCP agent backend integration
+- [ ] New intent types (Workflow, Timeline, Chat, Kanban)
+- [ ] Hypothetical mode (isolated "what-if" overlay)
+- [ ] WCAG 2.2 AA accessibility audit
+- [ ] Schema versioning & capability discovery
 
 ---
 

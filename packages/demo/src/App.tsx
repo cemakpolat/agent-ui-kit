@@ -135,8 +135,8 @@ function createBridge(transportType: TransportType, config?: Record<string, stri
       return new WebSocketAgentBridge({ url });
     }
     case 'sse': {
-      const baseUrl = config?.sseUrl || TRANSPORT_DEFAULTS.sse;
-      return new SSEAgentBridge({ baseUrl });
+      const sseUrl = config?.sseUrl || TRANSPORT_DEFAULTS.sse;
+      return new SSEAgentBridge({ streamUrl: sseUrl, sendUrl: sseUrl });
     }
     case 'mcp': {
       const url = config?.mcpUrl || TRANSPORT_DEFAULTS.mcp;
@@ -152,7 +152,8 @@ function createBridge(transportType: TransportType, config?: Record<string, stri
  * Get default transport from environment or user preference
  */
 function getDefaultTransport(): TransportType {
-  const env = (import.meta.env.VITE_TRANSPORT as string) || 'mock';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const env = (import.meta as any).env?.VITE_TRANSPORT || 'mock';
   if (['mock', 'websocket', 'sse', 'mcp'].includes(env)) {
     return env as TransportType;
   }
@@ -228,19 +229,25 @@ export function App() {
   // Stop live updates whenever the active scenario changes; the toggle button
   // resets so the user must opt back in for the new scenario.
   React.useEffect(() => {
-    bridge.stopLiveUpdates();
+    if ('stopLiveUpdates' in bridge && typeof bridge.stopLiveUpdates === 'function') {
+      (bridge as unknown as { stopLiveUpdates: () => void }).stopLiveUpdates();
+    }
     setIsLive(false);
   }, [activeScenario, bridge]);
 
   const handleLiveToggle = React.useCallback(() => {
     if (isLive) {
-      bridge.stopLiveUpdates();
+      if ('stopLiveUpdates' in bridge && typeof bridge.stopLiveUpdates === 'function') {
+        (bridge as unknown as { stopLiveUpdates: () => void }).stopLiveUpdates();
+      }
       setIsLive(false);
       addLog('[simulate] Live updates stopped');
     } else {
       const factory = LIVE_MUTATORS[activeScenario];
       if (!factory) return;
-      bridge.startLiveUpdates(LIVE_UPDATE_INTERVAL_MS, factory());
+      if ('startLiveUpdates' in bridge && typeof bridge.startLiveUpdates === 'function') {
+        (bridge as unknown as { startLiveUpdates: (interval: number, mutator: unknown) => void }).startLiveUpdates(LIVE_UPDATE_INTERVAL_MS, factory());
+      }
       setIsLive(true);
       addLog(`[simulate] Live updates started (${LIVE_UPDATE_INTERVAL_MS} ms interval)`);
     }
@@ -265,7 +272,13 @@ export function App() {
     const parsed = IntentPayloadSchema.parse(raw);
 
     // Route through the bridge — it emits 'intent' → useAgentBridge → setIntent
-    bridge.loadScenario(parsed);
+    if ('loadScenario' in bridge && typeof bridge.loadScenario === 'function') {
+      (bridge as unknown as { loadScenario: (intent: unknown) => void }).loadScenario(parsed);
+    } else {
+      // Fallback: simulate intent update directly
+      const store = useIntentStore.getState();
+      store.setIntent(parsed);
+    }
     addLog(
       `[agent] Scenario loaded: ${parsed.intentId.slice(0, 8)}… ` +
       `domain=${parsed.domain} type=${parsed.type} ` +

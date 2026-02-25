@@ -14,7 +14,11 @@ const mockIntent: IntentPayload = {
   confidence: 0.95,
   data: { field1: '', field2: '' } as Record<string, unknown>,
   ambiguities: [],
-  createdAt: new Date().toISOString(),
+  priorityFields: [],
+  actions: [],
+  density: 'expert',
+  explainability: {},
+  explain: false,
 };
 
 describe('Presence (Real-time Collaboration)', () => {
