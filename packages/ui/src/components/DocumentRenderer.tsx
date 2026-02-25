@@ -244,11 +244,14 @@ function TrendArrow({ trend }: { trend?: 'up' | 'down' | 'stable' }) {
 
 // ── Block renderers ───────────────────────────────────────────────────────────
 
+type ImageGalleryEntry = { src: string; alt: string; caption?: string };
+
 function renderBlock(
   block: DocumentBlock,
   key: number,
   showConfidence: boolean,
   onRowAction?: (action: string, rowIndex: number, row: Record<string, unknown>) => void,
+  imageGallery?: ImageGalleryEntry[],
 ): React.ReactNode {
   let inner: React.ReactNode;
   switch (block.type) {
@@ -313,9 +316,22 @@ function renderBlock(
       );
       break;
 
-    case 'image':
-      inner = <ImageBlock src={block.src} alt={block.alt} caption={block.caption} width={block.width} />;
+    case 'image': {
+      const galleryIndex = imageGallery
+        ? imageGallery.findIndex((img) => img.src === block.src)
+        : -1;
+      inner = (
+        <ImageBlock
+          src={block.src}
+          alt={block.alt}
+          caption={block.caption}
+          width={block.width}
+          gallery={imageGallery && imageGallery.length > 1 ? imageGallery : undefined}
+          galleryIndex={galleryIndex >= 0 ? galleryIndex : undefined}
+        />
+      );
       break;
+    }
 
     case 'quote':
       inner = <QuoteBlock text={block.text} author={block.author} source={block.source} />;
@@ -725,6 +741,11 @@ function TableBlock({
     : filteredWithIndex;
 
   const hasActions = rowActions && rowActions.length > 0 && !!onRowAction;
+  const [confirmPending, setConfirmPending] = useState<{
+    action: TableRowAction;
+    origIdx: number;
+    row: Record<string, unknown>;
+  } | null>(null);
 
   const rowActionVariantStyle = (variant: TableRowAction['variant']): React.CSSProperties => {
     if (variant === 'danger') return { backgroundColor: '#fef2f2', color: '#991b1b', borderColor: '#fca5a5' };
@@ -826,7 +847,11 @@ function TableBlock({
                         <button
                           key={ra.action}
                           type="button"
-                          onClick={() => onRowAction!(ra.action, origIdx, row)}
+                          onClick={() =>
+                            ra.variant === 'danger'
+                              ? setConfirmPending({ action: ra, origIdx, row })
+                              : onRowAction!(ra.action, origIdx, row)
+                          }
                           aria-label={`${ra.label} row ${origIdx + 1}`}
                           style={{
                             padding: '0.2rem 0.5rem',
@@ -857,6 +882,69 @@ function TableBlock({
           No rows match "{filter}"
         </div>
       )}
+      {/* Danger action confirmation banner */}
+      {confirmPending && (
+        <div
+          role="alertdialog"
+          aria-label={`Confirm ${confirmPending.action.label}`}
+          style={{
+            marginTop: '0.5rem',
+            padding: '0.625rem 0.875rem',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fca5a5',
+            borderRadius: '0.375rem',
+            fontSize: '0.75rem',
+            color: '#7f1d1d',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            <strong>{confirmPending.action.label}</strong> — are you sure? This action cannot be undone.
+          </span>
+          <div style={{ display: 'flex', gap: '0.375rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                onRowAction!(confirmPending.action.action, confirmPending.origIdx, confirmPending.row);
+                setConfirmPending(null);
+              }}
+              aria-label={`Confirm ${confirmPending.action.label}`}
+              style={{
+                padding: '0.2rem 0.6rem',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                backgroundColor: '#dc2626',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '0.25rem',
+                cursor: 'pointer',
+              }}
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmPending(null)}
+              aria-label="Cancel"
+              style={{
+                padding: '0.2rem 0.6rem',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                backgroundColor: p.bgMuted,
+                color: p.textSecondary,
+                border: `1px solid ${p.border}`,
+                borderRadius: '0.25rem',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {caption && (
         <div style={{ fontSize: '0.7rem', color: p.textSecondary, marginTop: '0.375rem', textAlign: 'center', fontStyle: 'italic' }}>
           {caption}
@@ -867,28 +955,52 @@ function TableBlock({
 }
 
 function ImageBlock({
-  src, alt, caption, width,
+  src, alt, caption, width, gallery, galleryIndex,
 }: {
   src: string;
   alt: string;
   caption?: string;
   width?: number | string;
+  gallery?: Array<{ src: string; alt: string; caption?: string }>;
+  galleryIndex?: number;
 }) {
   const p = useDarkPalette();
   const [open, setOpen] = useState(false);
+  const [currentIdx, setCurrentIdx] = useState(0);
   const triggerRef = useRef<Element | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  const hasGallery = !!gallery && gallery.length > 1 && galleryIndex !== undefined;
+  const currentImage = hasGallery ? gallery![currentIdx] : { src, alt, caption };
+  const galleryCount = gallery?.length ?? 1;
 
   // Save the focused element when the lightbox opens; restore it when it closes.
   useEffect(() => {
     if (open) {
+      if (hasGallery) setCurrentIdx(galleryIndex!);
       triggerRef.current = document.activeElement;
       closeBtnRef.current?.focus();
     } else if (triggerRef.current) {
       (triggerRef.current as HTMLElement | null)?.focus?.();
       triggerRef.current = null;
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Arrow-key navigation between gallery images
+  useEffect(() => {
+    if (!open || !hasGallery) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCurrentIdx((i) => (i - 1 + galleryCount) % galleryCount);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setCurrentIdx((i) => (i + 1) % galleryCount);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, hasGallery, galleryCount]);
 
   return (
     <div style={{ margin: '0.75rem 0', textAlign: 'center' }}>
@@ -922,7 +1034,7 @@ function ImageBlock({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={alt}
+          aria-label={currentImage.alt}
           onClick={() => setOpen(false)}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
@@ -932,8 +1044,8 @@ function ImageBlock({
           }}
         >
           <img
-            src={src}
-            alt={alt}
+            src={currentImage.src}
+            alt={currentImage.alt}
             onClick={(e) => e.stopPropagation()}
             style={{
               maxWidth: '90vw', maxHeight: '90vh',
@@ -955,7 +1067,44 @@ function ImageBlock({
           >
             ✕
           </button>
-          {caption && (
+          {/* Prev / next buttons */}
+          {hasGallery && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setCurrentIdx((i) => (i - 1 + galleryCount) % galleryCount); }}
+                aria-label="Previous image"
+                style={{
+                  position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)',
+                  background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+                  width: '2.5rem', height: '2.5rem', color: 'white', fontSize: '1.1rem',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setCurrentIdx((i) => (i + 1) % galleryCount); }}
+                aria-label="Next image"
+                style={{
+                  position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)',
+                  background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+                  width: '2.5rem', height: '2.5rem', color: 'white', fontSize: '1.1rem',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ›
+              </button>
+              <div style={{
+                position: 'absolute', top: '1rem', left: '50%', transform: 'translateX(-50%)',
+                fontSize: '0.7rem', color: 'rgba(255,255,255,0.65)',
+              }}>
+                {currentIdx + 1} / {galleryCount}
+              </div>
+            </>
+          )}
+          {currentImage.caption && (
             <div style={{
               position: 'absolute', bottom: '1.25rem', left: '50%',
               transform: 'translateX(-50%)',
@@ -963,7 +1112,7 @@ function ImageBlock({
               fontStyle: 'italic', textAlign: 'center',
               maxWidth: '80vw',
             }}>
-              {caption}
+              {currentImage.caption}
             </div>
           )}
         </div>
@@ -1510,13 +1659,14 @@ function EmbedBlock({
 // ── Section renderer ──────────────────────────────────────────────────────────
 
 function SectionBlock({
-  section, showConfidence, onExplain, density, onRowAction,
+  section, showConfidence, onExplain, density, onRowAction, imageGallery,
 }: {
   section: DocumentSection;
   showConfidence: boolean;
   onExplain?: (id: string) => void;
   density: 'executive' | 'operator' | 'expert';
   onRowAction?: (action: string, rowIndex: number, row: Record<string, unknown>) => void;
+  imageGallery?: ImageGalleryEntry[];
 }) {
   const p = useDarkPalette();
   const [collapsed, setCollapsed] = useState(section.defaultCollapsed ?? false);
@@ -1594,7 +1744,7 @@ function SectionBlock({
       )}
       {!collapsed && (
         <div>
-          {section.blocks.map((block, i) => renderBlock(block, i, showConfidence, onRowAction))}
+          {section.blocks.map((block, i) => renderBlock(block, i, showConfidence, onRowAction, imageGallery))}
         </div>
       )}
     </div>
@@ -1705,6 +1855,19 @@ export function DocumentRenderer({
   }, [densitySections, showSearch, searchQuery]);
 
   const tocSections = visibleSections.filter((s) => !!s.title);
+
+  // Collect all image blocks for lightbox gallery navigation
+  const imageGallery = useMemo<ImageGalleryEntry[]>(() => {
+    const imgs: ImageGalleryEntry[] = [];
+    for (const section of visibleSections) {
+      for (const block of section.blocks) {
+        if (block.type === 'image') {
+          imgs.push({ src: block.src, alt: block.alt, caption: block.caption });
+        }
+      }
+    }
+    return imgs;
+  }, [visibleSections]);
 
   return (
     <div style={{ color: p.textBody }}>
@@ -1882,6 +2045,7 @@ export function DocumentRenderer({
               onExplain={onExplain}
               density={density}
               onRowAction={onRowAction}
+              imageGallery={imageGallery}
             />
           </LazySectionLoader>
         );
