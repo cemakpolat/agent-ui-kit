@@ -813,6 +813,160 @@ interface FieldRendererProps {
   onBlur: () => void;
 }
 
+// ── Rich text field ───────────────────────────────────────────────────────────
+
+const RICH_TEXT_TOOLBAR_LABELS: Record<string, string> = {
+  'bold': 'B',
+  'italic': 'I',
+  'underline': 'U',
+  'link': '🔗',
+  'ordered-list': '1.',
+  'unordered-list': '•',
+};
+
+function RichTextField({
+  field, value, onChange, onBlur, commonInputStyles, fieldId,
+}: {
+  field: Extract<FormField, { type: 'rich_text' }>;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  onBlur: () => void;
+  commonInputStyles: React.CSSProperties;
+  fieldId: string;
+}) {
+  const p = useFormPalette();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const text = typeof value === 'string' ? value : '';
+  const charCount = text.length;
+
+  const wrapSelection = (before: string, after: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = text.slice(start, end);
+    const newText = text.slice(0, start) + before + selected + after + text.slice(end);
+    onChange(newText);
+    // Restore cursor/selection after React re-renders
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + before.length, start + before.length + selected.length);
+    });
+  };
+
+  const insertAtLineStart = (prefix: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const newText = text.slice(0, lineStart) + prefix + text.slice(lineStart);
+    onChange(newText);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + prefix.length, start + prefix.length);
+    });
+  };
+
+  const handleToolbar = (action: string) => {
+    switch (action) {
+      case 'bold': return wrapSelection('**', '**');
+      case 'italic': return wrapSelection('_', '_');
+      case 'underline': return wrapSelection('<u>', '</u>');
+      case 'link': {
+        const url = window.prompt('Enter URL:', 'https://');
+        if (!url) return;
+        const el = textareaRef.current;
+        if (!el) return;
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        const selected = text.slice(start, end) || 'link text';
+        const newText = text.slice(0, start) + `[${selected}](${url})` + text.slice(end);
+        onChange(newText);
+        return;
+      }
+      case 'ordered-list': return insertAtLineStart('1. ');
+      case 'unordered-list': return insertAtLineStart('- ');
+    }
+  };
+
+  const atMax = field.maxLength !== undefined && charCount > field.maxLength;
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex', gap: '0.25rem', flexWrap: 'wrap',
+        padding: '0.25rem 0.375rem',
+        border: `1px solid ${p.border}`,
+        borderBottom: 'none',
+        borderRadius: '0.375rem 0.375rem 0 0',
+        backgroundColor: p.bgSubtle,
+      }}>
+        {field.toolbar.map((action) => (
+          <button
+            key={action}
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); handleToolbar(action); }}
+            aria-label={`Format: ${action}`}
+            title={action}
+            style={{
+              padding: '0.15rem 0.4rem',
+              fontSize: '0.72rem',
+              fontWeight: action === 'bold' ? 700 : action === 'italic' ? 400 : 600,
+              fontStyle: action === 'italic' ? 'italic' : 'normal',
+              border: `1px solid ${p.border}`,
+              borderRadius: '0.25rem',
+              backgroundColor: p.bg,
+              color: p.textSecondary,
+              cursor: 'pointer',
+              lineHeight: 1.4,
+              fontFamily: action === 'link' ? 'inherit' : 'monospace',
+            }}
+            disabled={field.disabled}
+          >
+            {RICH_TEXT_TOOLBAR_LABELS[action] ?? action}
+          </button>
+        ))}
+      </div>
+      {/* Textarea */}
+      <textarea
+        ref={textareaRef}
+        id={fieldId}
+        value={text}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder={field.placeholder ?? 'Write here… supports **bold**, _italic_, [links](url)'}
+        disabled={field.disabled}
+        rows={field.rows}
+        aria-label={`${field.label} — rich text input, supports Markdown formatting`}
+        style={{
+          ...commonInputStyles,
+          borderRadius: '0 0 0.375rem 0.375rem',
+          resize: 'vertical',
+          fontFamily: 'monospace',
+          fontSize: '0.82rem',
+          lineHeight: 1.6,
+          borderColor: atMax ? '#ef4444' : commonInputStyles.borderColor,
+        }}
+      />
+      {/* Character count */}
+      {(field.minLength !== undefined || field.maxLength !== undefined) && (
+        <div style={{
+          display: 'flex', justifyContent: 'flex-end',
+          fontSize: '0.65rem',
+          color: atMax ? '#ef4444' : p.textMuted,
+          marginTop: '0.2rem',
+        }}>
+          {charCount}{field.maxLength !== undefined && ` / ${field.maxLength}`}
+          {field.minLength !== undefined && charCount < field.minLength && (
+            <span style={{ marginLeft: '0.5rem' }}>min {field.minLength}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FieldRenderer({ field, value, error, isValidating, onChange, onBlur }: FieldRendererProps) {
   const p = useFormPalette();
   const fieldId = `field-${field.id}`;
@@ -1036,7 +1190,10 @@ function DateRangeField({
   const handleStart = (start: string) => onChange({ ...range, start });
   const handleEnd = (end: string) => onChange({ ...range, end });
 
+  const endBeforeStart = !!(range.start && range.end && range.end < range.start);
+
   return (
+    <div>
     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
       <div style={{ flex: '1 1 140px' }}>
         <label
@@ -1076,6 +1233,22 @@ function DateRangeField({
           style={commonInputStyles}
         />
       </div>
+    </div>
+    {endBeforeStart && (
+      <div
+        role="alert"
+        style={{
+          marginTop: '0.35rem',
+          fontSize: '0.72rem',
+          color: '#dc2626',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.3rem',
+        }}
+      >
+        ⚠ End date must be on or after the start date
+      </div>
+    )}
     </div>
   );
 }
@@ -1482,6 +1655,18 @@ function renderFieldInput(
             style={{ width: '100%', accentColor: '#4f46e5' }}
           />
         </div>
+      );
+
+    case 'rich_text':
+      return (
+        <RichTextField
+          field={field}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          commonInputStyles={commonInputStyles}
+          fieldId={fieldId}
+        />
       );
 
     default:
