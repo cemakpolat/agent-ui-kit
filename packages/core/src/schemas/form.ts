@@ -393,3 +393,22 @@ export const FormValidationResponseSchema = z.object({
 });
 
 export type FormValidationResponse = z.infer<typeof FormValidationResponseSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rate Limit Config
+//
+// Optional throttle on form submission frequency.  Pass this in the intent
+// payload (or directly to FormRenderer) to prevent spam submissions.
+//
+// Example:
+//   rateLimit: { maxAttempts: 3, windowMs: 60_000 }  // max 3 per minute
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const FormRateLimitSchema = z.object({
+  /** Maximum number of submissions allowed within the window. */
+  maxAttempts: z.number().int().positive(),
+  /** Rolling time window in milliseconds. */
+  windowMs: z.number().int().positive(),
+});
+
+export type FormRateLimit = z.infer<typeof FormRateLimitSchema>;

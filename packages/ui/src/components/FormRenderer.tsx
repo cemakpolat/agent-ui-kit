@@ -21,6 +21,7 @@ import React, { useState, useCallback, useEffect, useRef, Component, createConte
 import type { FormField, FormSection, FormStep, ValidationRule, DateRangeValue } from '@hari/core';
 import { VirtualFieldList, VIRTUALIZE_THRESHOLD } from './VirtualFieldList';
 import { VoiceMicButton } from './VoiceMicButton';
+import { LocaleContext, UILocale, isRtlLocale, useMessages, getMessages } from '../i18n';
 
 // ── Theme customization ────────────────────────────────────────────────────────
 
@@ -164,6 +165,12 @@ export interface FormRendererProps {
    *   theme={{ accentColor: '#10b981', borderFocus: '#10b981' }}
    */
   theme?: FormTheme;
+  /**
+   * UI locale for labels, buttons, and validation messages.
+   * Supports right-to-left rendering for 'ar' and 'he'.
+   * @default 'en'
+   */
+  locale?: UILocale;
 }
 
 // ── Validation helpers ────────────────────────────────────────────────────────
@@ -171,10 +178,11 @@ export interface FormRendererProps {
 function validateField(
   value: unknown,
   field: FormField,
+  requiredMsg?: (label: string) => string,
 ): string | null {
   // Required check
   if (field.required && (value === undefined || value === null || value === '')) {
-    return `${field.label} is required`;
+    return requiredMsg ? requiredMsg(field.label) : `${field.label} is required`;
   }
 
   // Skip other validations if empty and not required
@@ -239,7 +247,7 @@ export function FormRenderer({
   onChange,
   initialValues = {},
   showSubmitButton = true,
-  submitButtonLabel = 'Submit',
+  submitButtonLabel,
   isSubmitting = false,
   asyncValidators = {},
   serverErrors,
@@ -247,8 +255,13 @@ export function FormRenderer({
   steps,
   autoSave = false,
   theme,
+  locale = 'en',
 }: FormRendererProps) {
   const p = useFormPalette();
+  // Use getMessages(locale) directly — useMessages() reads from LocaleContext but
+  // FormRenderer itself provides that context, so child components get the locale
+  // correctly while this function uses getMessages() to bypass the not-yet-set context.
+  const m = getMessages(locale);
   const [values, setValues] = useState<Record<string, unknown>>(initialValues);
   const [errors, setErrors] = useState<Record<string, string>>(serverErrors?.fieldErrors ?? {});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -369,7 +382,7 @@ export function FormRenderer({
         if (submitTimestamps.current.length >= rateLimit.maxAttempts) {
           const oldest = submitTimestamps.current[0];
           const waitSec = Math.ceil((rateLimit.windowMs - (now - oldest)) / 1000);
-          setRateLimitError(`Too many attempts. Please wait ${waitSec}s before retrying.`);
+          setRateLimitError(m.tooManyAttempts(waitSec));
           return;
         }
         submitTimestamps.current.push(now);
@@ -381,7 +394,7 @@ export function FormRenderer({
       const newErrors: Record<string, string> = {};
       sections.forEach((section) => {
         section.fields.forEach((field) => {
-          const error = validateField(values[field.id], field);
+          const error = validateField(values[field.id], field, m.fieldRequired);
           if (error) newErrors[field.id] = error;
         });
       });
@@ -432,7 +445,7 @@ export function FormRenderer({
     visibleSections.forEach((section) => {
       section.fields.forEach((field) => {
         if (!isFieldVisible(field)) return;
-        const error = validateField(values[field.id], field);
+        const error = validateField(values[field.id], field, m.fieldRequired);
         if (error) stepErrors[field.id] = error;
       });
     });
@@ -474,8 +487,13 @@ export function FormRenderer({
   }, [draftKey]);
 
   return (
+    <LocaleContext.Provider value={locale}>
     <FormThemeContext.Provider value={theme ?? {}}>
-    <form onSubmit={handleSubmit} style={{ width: '100%', color: p.textPrimary }}>
+    <form
+      onSubmit={handleSubmit}
+      dir={isRtlLocale(locale) ? 'rtl' : undefined}
+      style={{ width: '100%', color: p.textPrimary }}
+    >
       {/* Restore draft banner */}
       {showRestoreBanner && (
         <div role="alert" style={{
@@ -491,7 +509,7 @@ export function FormRenderer({
           justifyContent: 'space-between',
           gap: '0.75rem',
         }}>
-          <span>A saved draft was found. Would you like to restore it?</span>
+          <span>{m.draftFound}</span>
           <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
             <button
               type="button"
@@ -503,7 +521,7 @@ export function FormRenderer({
                 border: 'none', borderRadius: '0.375rem', cursor: 'pointer',
               }}
             >
-              Restore
+              {m.draftRestore}
             </button>
             <button
               type="button"
@@ -515,7 +533,7 @@ export function FormRenderer({
                 border: `1px solid ${p.borderStrong}`, borderRadius: '0.375rem', cursor: 'pointer',
               }}
             >
-              Discard
+              {m.draftDiscard}
             </button>
           </div>
         </div>
@@ -590,7 +608,7 @@ export function FormRenderer({
                   cursor: 'pointer',
                 }}
               >
-                ← Back
+                {m.wizardBack}
               </button>
             )}
             {!isLastStep && (
@@ -609,7 +627,7 @@ export function FormRenderer({
                   cursor: 'pointer',
                 }}
               >
-                Next →
+                {m.wizardNext}
               </button>
             )}
             {isLastStep && showSubmitButton && (
@@ -627,11 +645,11 @@ export function FormRenderer({
                   cursor: isSubmitting || rateLimitError ? 'not-allowed' : 'pointer',
                 }}
               >
-                {isSubmitting ? 'Submitting...' : submitButtonLabel}
+                {isSubmitting ? m.submitting : (submitButtonLabel ?? m.wizardNext)}
               </button>
             )}
             <span style={{ fontSize: '0.7rem', color: p.textMuted, marginLeft: 'auto' }}>
-              Step {currentStepIndex + 1} of {steps!.length}
+              {m.stepOf(currentStepIndex + 1, steps!.length)}
             </span>
           </div>
         ) : showSubmitButton && (
@@ -650,12 +668,13 @@ export function FormRenderer({
               transition: 'background-color 0.2s',
             }}
           >
-            {isSubmitting ? 'Submitting...' : submitButtonLabel}
+            {isSubmitting ? m.submitting : (submitButtonLabel ?? 'Submit')}
           </button>
         )}
       </div>
     </form>
     </FormThemeContext.Provider>
+    </LocaleContext.Provider>
   );
 }
 
@@ -814,6 +833,7 @@ function FormSectionRenderer({
   depth = 0,
 }: FormSectionRendererProps) {
   const p = useFormPalette();
+  const m = useMessages();
   const [collapsed, setCollapsed] = useState(section.defaultCollapsed);
   const narrow = useNarrowLayout();
 
@@ -873,7 +893,7 @@ function FormSectionRenderer({
                   fontWeight: 600,
                 }}
               >
-                {collapsed ? 'Expand ▼' : 'Collapse ▲'}
+                {collapsed ? m.sectionExpand : m.sectionCollapse}
               </button>
             )}
           </div>
@@ -990,6 +1010,7 @@ function RichTextField({
   fieldId: string;
 }) {
   const p = useFormPalette();
+  const m = useMessages();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const text = typeof value === 'string' ? value : '';
   const charCount = text.length;
@@ -1090,7 +1111,7 @@ function RichTextField({
         value={text}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
-        placeholder={field.placeholder ?? 'Write here… supports **bold**, _italic_, [links](url)'}
+        placeholder={field.placeholder ?? m.richTextPlaceholder}
         disabled={field.disabled}
         rows={field.rows ?? 5}
         aria-label={`${field.label} — rich text input, supports Markdown formatting`}
@@ -1114,7 +1135,7 @@ function RichTextField({
         }}>
           {charCount}{field.maxLength !== undefined && ` / ${field.maxLength}`}
           {field.minLength !== undefined && charCount < field.minLength && (
-            <span style={{ marginLeft: '0.5rem' }}>min {field.minLength}</span>
+            <span style={{ marginLeft: '0.5rem' }}>{m.minLength(field.minLength)}</span>
           )}
         </div>
       )}
@@ -1124,6 +1145,7 @@ function RichTextField({
 
 function FieldRenderer({ field, value, error, isValidating, onChange, onBlur }: FieldRendererProps) {
   const p = useFormPalette();
+  const m = useMessages();
   const fieldId = `field-${field.id}`;
   const hasError = !!error;
 
@@ -1174,7 +1196,7 @@ function FieldRenderer({ field, value, error, isValidating, onChange, onBlur }: 
         </p>
       )}
 
-      {renderFieldInput(field, value, onChange, onBlur, fieldId, commonInputStyles)}
+      {renderFieldInput(field, value, onChange, onBlur, fieldId, commonInputStyles, m.selectPlaceholder)}
 
       {field.helpText && !hasError && !isValidating && (
         <p style={{ margin: '0.25rem 0 0', fontSize: '0.7rem', color: p.textMuted }}>
@@ -1373,6 +1395,7 @@ function DateRangeField({
   commonInputStyles: React.CSSProperties;
   fieldId: string;
 }) {
+  const m = useMessages();
   const range = (value && typeof value === 'object' && !Array.isArray(value))
     ? (value as DateRangeValue)
     : { start: '', end: '' };
@@ -1436,7 +1459,7 @@ function DateRangeField({
           gap: '0.3rem',
         }}
       >
-        ⚠ End date must be on or after the start date
+        {m.endDateError}
       </div>
     )}
     </div>
@@ -1584,6 +1607,7 @@ function renderFieldInput(
   onBlur: () => void,
   fieldId: string,
   commonInputStyles: React.CSSProperties,
+  selectPlaceholderText: string,
 ): React.ReactNode {
   switch (field.type) {
     case 'text':
@@ -1695,7 +1719,7 @@ function renderFieldInput(
           disabled={field.disabled}
           style={commonInputStyles}
         >
-          <option value="">{field.placeholder ?? 'Select an option...'}</option>
+          <option value="">{field.placeholder ?? selectPlaceholderText}</option>
           {field.options.map((opt) => (
             <option key={opt.value} value={opt.value} disabled={opt.disabled}>
               {opt.label}

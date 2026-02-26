@@ -86,7 +86,7 @@
 
 ### Enhanced Document Capabilities
 - [x] Interactive code blocks with syntax highlighting (done — inline regex tokenizer, `syntaxTokenize` export)
-- [ ] Full charting library integration (e.g., Recharts, Chart.js) — custom SVG charts exist; external library would add scatter/area
+- [x] Full charting library integration (done — Recharts 3 replaces custom SVG charts; bar, line, area, pie, scatter all use `ResponsiveContainer`; sparkline remains lightweight inline SVG)
 - [x] Table sorting and filtering (done — column sort, filter input > 4 rows)
 - [x] Expandable/collapsible sections (done — `collapsible`/`defaultCollapsed` flags)
 - [x] Table of contents auto-generation (done — `showToc` with `tocSections`)
@@ -201,13 +201,13 @@ Track these metrics to measure HARI effectiveness:
 ## 🐛 Known Issues / Tech Debt
 
 - [x] FormRenderer doesn't handle async validation yet (done — `onValidate` async prop + `asyncValidating` state + per-field error display)
-- [ ] DocumentRenderer dataviz is placeholder (needs library)
+- [x] DocumentRenderer dataviz is placeholder (done — Recharts 3 integration; `DataVizBlock` uses `ResponsiveContainer` + all 6 chart types)
 - [x] Image block doesn't support expandable/lightbox mode (done — `expandable` flag + lightbox overlay with click-to-close)
 - [x] Table block doesn't support row actions (done — `rowActions` array with onClick callbacks)
 - [x] No responsive breakpoints defined for density modes (done — `useNarrowLayout` hook collapses multi-column grids below 640px)
 - [x] Missing error boundaries for individual block types (done — `FieldErrorBoundary` class component wraps each field in FormRenderer; `BlockErrorBoundary` already in DocumentRenderer)
 - [x] Form sections don't support nested sections (done — `FormSectionSchema` uses `z.lazy()` for recursive type; `subsections?: FormSection[]` with indented rendering)
-- [ ] No built-in rate limiting for form submissions
+- [x] No built-in rate limiting for form submissions (done — `rateLimit` prop on `FormRenderer`; `FormRateLimitSchema` exported from core; sliding-window timestamp check blocks excess submits with localized error message)
 
 ---
 
@@ -216,8 +216,8 @@ Track these metrics to measure HARI effectiveness:
 Track user-requested features here:
 - [x] Dark mode support for all components (done — `prefers-color-scheme` aware palettes throughout)
 - [x] Custom theme configuration (done — `FormTheme` interface + `FormThemeContext`; pass `theme` prop to FormRenderer)
-- [ ] Localization/i18n support
-- [ ] Right-to-left (RTL) language support
+- [x] Localization/i18n support (done — `locale` prop on both renderers; `UIMessages` interface + translations for en/fr/de/ar/he; `getMessages()`/`useMessages()` hooks; `LocaleContext` for child components)
+- [x] Right-to-left (RTL) language support (done — `isRtlLocale()` sets `dir="rtl"` on the root element for Arabic and Hebrew locales)
 - [x] Export scenarios to JSON (done — Export button in demo header downloads current intent as `.json` file)
 - [x] Import scenarios from JSON (done — Import button in demo header reads `.json` file, validates with Zod, loads as custom scenario)
 - [x] Component CSS variables for easy customization (done — `FormTheme` prop with accentColor/dangerColor/backgroundColor/surfaceColor/textColor/borderColor/radius overrides)
