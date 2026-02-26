@@ -131,7 +131,7 @@ function validateField(
   // Type-specific validations
   const stringValue = String(value);
 
-  for (const rule of field.validation) {
+  for (const rule of (field.validation ?? [])) {
     switch (rule.type) {
       case 'required':
         if (!value) return rule.message;
@@ -989,25 +989,29 @@ function FieldRenderer({ field, value, error, isValidating, onChange, onBlur }: 
 
   return (
     <div>
-      <label htmlFor={fieldId} style={{ display: 'block', marginBottom: '0.375rem' }}>
-        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: p.textLabel }}>
-          {field.label}
-          {field.required && <span style={{ color: '#ef4444', marginLeft: '0.25rem' }}>*</span>}
-          {field.sensitive && (
-            <span style={{
-              marginLeft: '0.5rem',
-              fontSize: '0.65rem',
-              color: '#f59e0b',
-              fontWeight: 700,
-              border: '1px solid #f59e0b',
-              borderRadius: '0.25rem',
-              padding: '0.1rem 0.3rem',
-            }}>
-              SENSITIVE
-            </span>
-          )}
-        </span>
-      </label>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.375rem' }}>
+        <label htmlFor={fieldId} style={{ display: 'inline' }}>
+          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: p.textLabel }}>
+            {field.label}
+          </span>
+        </label>
+        {field.required && (
+          <span aria-hidden="true" style={{ color: '#ef4444', marginLeft: '0.25rem', fontSize: '0.875rem' }}>*</span>
+        )}
+        {field.sensitive && (
+          <span style={{
+            marginLeft: '0.5rem',
+            fontSize: '0.65rem',
+            color: '#f59e0b',
+            fontWeight: 700,
+            border: '1px solid #f59e0b',
+            borderRadius: '0.25rem',
+            padding: '0.1rem 0.3rem',
+          }}>
+            SENSITIVE
+          </span>
+        )}
+      </div>
 
       {field.description && (
         <p style={{ margin: '0 0 0.375rem', fontSize: '0.75rem', color: p.textSecondary }}>
