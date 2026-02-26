@@ -34,7 +34,8 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@hari/core": "workspace:*"
+    "@hari/core": "workspace:*",
+    "recharts": "^3.7.0"
   },
   "peerDependencies": {
     "react": "^18.0.0",
