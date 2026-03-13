@@ -9,6 +9,8 @@ export * from './blast-radius-testing';
 export * from './ab-testing';
 export * from './confidence-calibration';
 export * from './error-recovery';
+export * from './governance';
+export * from './dev-warnings';
 
 // Re-export for convenience
 export {

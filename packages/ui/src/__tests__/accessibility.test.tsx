@@ -96,6 +96,10 @@ const TREE_DATA = {
   ],
 };
 
+// Use today's date so the event always falls within the current week view
+const _today = new Date();
+const _todayISO = _today.toISOString().slice(0, 10);
+
 const CALENDAR_DATA = {
   title: 'My Calendar',
   view: 'week' as const,
@@ -103,8 +107,8 @@ const CALENDAR_DATA = {
     {
       id: 'evt1',
       title: 'Team standup',
-      start: '2026-02-24T09:00:00',
-      end: '2026-02-24T09:30:00',
+      start: `${_todayISO}T09:00:00`,
+      end: `${_todayISO}T09:30:00`,
       allDay: false,
       explainElementId: 'el-evt1',
     },
@@ -158,7 +162,7 @@ describe('ChatRenderer accessibility', () => {
     render(
       <ChatRenderer data={CHAT_DATA} density="expert" onExplain={vi.fn()} />,
     );
-    const btn = screen.getByRole('button', { name: 'Explain this message' });
+    const btn = screen.getByRole('button', { name: 'Why?' });
     expect(btn).toBeDefined();
   });
 
@@ -170,7 +174,7 @@ describe('ChatRenderer accessibility', () => {
 
   it('provides aria-label on Send message button', () => {
     render(<ChatRenderer data={CHAT_DATA} density="operator" />);
-    const btn = screen.getByRole('button', { name: 'Send message' });
+    const btn = screen.getByRole('button', { name: 'Send' });
     expect(btn).toBeDefined();
   });
 
@@ -201,7 +205,7 @@ describe('ChatRenderer accessibility', () => {
     // CHAT_DATA has streamingMessageId set, so the region should say "Agent is typing"
     const liveRegion = container.querySelector('[aria-live="assertive"]');
     expect(liveRegion).not.toBeNull();
-    expect(liveRegion?.textContent?.trim()).toBe('Agent is typing');
+    expect(liveRegion?.textContent?.trim()).toBe('is typing…');
   });
 
   it('streaming status region is empty when no message is streaming', () => {
@@ -274,13 +278,13 @@ describe('TimelineRenderer accessibility', () => {
 describe('TreeRenderer accessibility', () => {
   it('Expand all button has aria-label', () => {
     render(<TreeRenderer data={TREE_DATA} density="operator" />);
-    const btn = screen.getByRole('button', { name: 'Expand all nodes' });
+    const btn = screen.getByRole('button', { name: 'Expand all' });
     expect(btn).toBeDefined();
   });
 
   it('Collapse all button has aria-label', () => {
     render(<TreeRenderer data={TREE_DATA} density="operator" />);
-    const btn = screen.getByRole('button', { name: 'Collapse all nodes' });
+    const btn = screen.getByRole('button', { name: 'Collapse all' });
     expect(btn).toBeDefined();
   });
 

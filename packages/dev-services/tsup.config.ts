@@ -7,6 +7,8 @@ export default defineConfig({
     'src/ws-server.ts',
     'src/sse-server.ts',
     'src/mcp-server.ts',
+    'src/governance-server.ts',
+    'src/audit-db.ts',
     'src/index.ts',
   ],
   format: ['esm'],

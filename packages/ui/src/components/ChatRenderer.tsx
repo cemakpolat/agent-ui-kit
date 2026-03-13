@@ -1,5 +1,8 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { ChatDataSchema, type ChatMessage, type ChatAttachment } from '@hari/core';
+import { User, Bot, Info } from 'lucide-react';
+import { useTheme } from '../ThemeContext';
+import { useMessages } from '../i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ChatRenderer
@@ -21,47 +24,54 @@ export interface ChatRendererProps {
   onSendMessage?: (message: string, attachments?: File[]) => void;
 }
 
-// ── Role styling ───────────────────────────────────────────────────────────────
+// ── Role styling (theme-aware) ─────────────────────────────────────────────────
 
-const ROLE_CONFIG = {
-  user: {
-    label: 'You',
-    icon: '👤',
-    align: 'flex-end' as const,
-    bubbleBg: '#eff6ff',
-    bubbleBorder: '#bfdbfe',
-    labelColor: '#1d4ed8',
-  },
-  agent: {
-    label: 'Agent',
-    icon: '🤖',
-    align: 'flex-start' as const,
-    bubbleBg: '#f9fafb',
-    bubbleBorder: '#e5e7eb',
-    labelColor: '#374151',
-  },
-  system: {
-    label: 'System',
-    icon: 'ℹ️',
-    align: 'center' as const,
-    bubbleBg: '#fefce8',
-    bubbleBorder: '#fde68a',
-    labelColor: '#92400e',
-  },
+const ROLE_META = {
+  user: { label: 'You', icon: User, align: 'flex-end' as const },
+  agent: { label: 'Agent', icon: Bot, align: 'flex-start' as const },
+  system: { label: 'System', icon: Info, align: 'center' as const },
 };
+
+function useRoleConfig() {
+  const { theme } = useTheme();
+  return useMemo(() => ({
+    user: {
+      ...ROLE_META.user,
+      bubbleBg: theme.colors.accentSubtle,
+      bubbleBorder: theme.colors.borderFocus,
+      labelColor: theme.colors.accent,
+    },
+    agent: {
+      ...ROLE_META.agent,
+      bubbleBg: theme.colors.surfaceAlt,
+      bubbleBorder: theme.colors.border,
+      labelColor: theme.colors.textSecondary,
+    },
+    system: {
+      ...ROLE_META.system,
+      bubbleBg: theme.colors.warningSubtle,
+      bubbleBorder: theme.colors.warning,
+      labelColor: theme.colors.warningText,
+    },
+  }), [theme]);
+}
 
 // ── Status indicator ───────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<string, { label: string; style: React.CSSProperties }> = {
-  streaming: {
-    label: 'Typing…',
-    style: { background: '#dbeafe', color: '#1d4ed8' },
-  },
-  error: {
-    label: 'Error',
-    style: { background: '#fee2e2', color: '#991b1b' },
-  },
-};
+function useStatusBadge(): Record<string, { label: string; style: React.CSSProperties }> {
+  const { theme } = useTheme();
+  const m = useMessages();
+  return useMemo(() => ({
+    streaming: {
+      label: m.chatTyping,
+      style: { background: theme.colors.infoSubtle, color: theme.colors.info },
+    },
+    error: {
+      label: m.chatError,
+      style: { background: theme.colors.dangerSubtle, color: theme.colors.danger },
+    },
+  }), [theme, m]);
+}
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -82,7 +92,7 @@ function renderMarkdownInline(content: string): React.ReactNode {
     }
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
-        <code key={i} style={{ background: '#f1f5f9', borderRadius: '3px', padding: '0 3px', fontSize: '0.85em', fontFamily: 'monospace' }}>
+        <code key={i} style={{ background: 'rgba(0,0,0,0.06)', borderRadius: '3px', padding: '0 3px', fontSize: '0.85em', fontFamily: 'monospace' }}>
           {part.slice(1, -1)}
         </code>
       );
@@ -100,18 +110,19 @@ function renderMarkdownInline(content: string): React.ReactNode {
 // ── Attachment pill ────────────────────────────────────────────────────────────
 
 function AttachmentPill({ attachment }: { attachment: ChatAttachment }) {
+  const { theme } = useTheme();
   const isImage = attachment.type.startsWith('image/');
   return (
     <div style={{
       display: 'inline-flex',
       alignItems: 'center',
       gap: '0.3rem',
-      background: '#f1f5f9',
-      border: '1px solid #e2e8f0',
-      borderRadius: '0.375rem',
+      background: theme.colors.surfaceAlt,
+      border: `1px solid ${theme.colors.border}`,
+      borderRadius: theme.radius.sm,
       padding: '0.2rem 0.5rem',
       fontSize: '0.75rem',
-      color: '#475569',
+      color: theme.colors.textSecondary,
       marginTop: '0.25rem',
       marginRight: '0.25rem',
     }}>
@@ -125,6 +136,7 @@ function AttachmentPill({ attachment }: { attachment: ChatAttachment }) {
 // ── Date separator ─────────────────────────────────────────────────────────────
 
 function DateSeparator({ ts }: { ts: number }) {
+  const { theme } = useTheme();
   return (
     <div style={{
       display: 'flex',
@@ -132,11 +144,11 @@ function DateSeparator({ ts }: { ts: number }) {
       gap: '0.75rem',
       margin: '0.75rem 0',
     }}>
-      <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-      <span style={{ fontSize: '0.7rem', color: '#9ca3af', whiteSpace: 'nowrap' }}>
+      <div style={{ flex: 1, height: '1px', background: theme.colors.border }} />
+      <span style={{ fontSize: '0.7rem', color: theme.colors.textMuted, whiteSpace: 'nowrap' }}>
         {formatDate(ts)}
       </span>
-      <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+      <div style={{ flex: 1, height: '1px', background: theme.colors.border }} />
     </div>
   );
 }
@@ -151,9 +163,14 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message, density, isStreaming, onExplain }: MessageBubbleProps) {
+  const { theme } = useTheme();
+  const m = useMessages();
+  const ROLE_CONFIG = useRoleConfig();
+  const STATUS_BADGE = useStatusBadge();
   const config = ROLE_CONFIG[message.role] ?? ROLE_CONFIG.agent;
   const isSystem = message.role === 'system';
   const statusBadge = message.status && message.status !== 'sent' ? STATUS_BADGE[message.status] : null;
+  const RoleIcon = config.icon;
 
   if (isSystem) {
     return (
@@ -167,7 +184,11 @@ function MessageBubble({ message, density, isStreaming, onExplain }: MessageBubb
           color: config.labelColor,
           maxWidth: '70%',
           textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem',
         }}>
+          <RoleIcon size={12} />
           {message.content}
         </div>
       </div>
@@ -190,10 +211,12 @@ function MessageBubble({ message, density, isStreaming, onExplain }: MessageBubb
           marginBottom: '0.2rem',
           flexDirection: message.role === 'user' ? 'row-reverse' : 'row',
         }}>
-          <span style={{ fontSize: '0.9rem' }}>{config.icon}</span>
+          <span style={{ fontSize: '0.9rem', color: config.labelColor }}>
+            <RoleIcon size={14} />
+          </span>
           <span style={{ fontSize: '0.7rem', fontWeight: 600, color: config.labelColor }}>{config.label}</span>
           {density === 'operator' || density === 'expert' ? (
-            <span style={{ fontSize: '0.65rem', color: '#9ca3af' }}>{formatTime(message.timestamp)}</span>
+            <span style={{ fontSize: '0.65rem', color: theme.colors.textMuted }}>{formatTime(message.timestamp)}</span>
           ) : null}
           {statusBadge && (
             <span style={{ fontSize: '0.65rem', borderRadius: '3px', padding: '0 4px', ...statusBadge.style }}>
@@ -215,7 +238,7 @@ function MessageBubble({ message, density, isStreaming, onExplain }: MessageBubb
         wordBreak: 'break-word',
         opacity: message.status === 'error' ? 0.7 : 1,
       }}>
-        <div style={{ fontSize: '0.875rem', color: '#111827', lineHeight: 1.5 }}>
+        <div style={{ fontSize: '0.875rem', color: theme.colors.text, lineHeight: 1.5 }}>
           {renderMarkdownInline(message.content)}
           {isStreaming && (
             <span
@@ -224,7 +247,7 @@ function MessageBubble({ message, density, isStreaming, onExplain }: MessageBubb
                 display: 'inline-block',
                 width: '2px',
                 height: '1em',
-                background: '#6366f1',
+                background: theme.colors.accent,
                 verticalAlign: 'text-bottom',
                 marginLeft: '2px',
                 animation: 'blink 1s step-end infinite',
@@ -247,7 +270,7 @@ function MessageBubble({ message, density, isStreaming, onExplain }: MessageBubb
         {density === 'expert' && message.metadata && Object.keys(message.metadata).length > 0 && (
           <div style={{ marginTop: '0.35rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
             {Object.entries(message.metadata).map(([k, v]) => (
-              <span key={k} style={{ fontSize: '0.65rem', background: '#f1f5f9', color: '#475569', borderRadius: '3px', padding: '1px 5px' }}>
+              <span key={k} style={{ fontSize: '0.65rem', background: theme.colors.surfaceAlt, color: theme.colors.textSecondary, borderRadius: '3px', padding: '1px 5px' }}>
                 {k}: {String(v)}
               </span>
             ))}
@@ -258,18 +281,18 @@ function MessageBubble({ message, density, isStreaming, onExplain }: MessageBubb
         {density === 'expert' && message.explainElementId && (
           <button
             onClick={() => onExplain?.(message.explainElementId!)}
-            aria-label="Explain this message"
-            style={{ marginTop: '0.3rem', fontSize: '0.7rem', background: 'none', border: '1px solid #d1d5db', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer', color: '#6b7280' }}
+            aria-label={m.explain}
+            style={{ marginTop: '0.3rem', fontSize: '0.7rem', background: 'none', border: `1px solid ${theme.colors.border}`, borderRadius: '3px', padding: '1px 6px', cursor: 'pointer', color: theme.colors.textMuted }}
           >
-            Why?
+            {m.explain}
           </button>
         )}
       </div>
 
       {/* Error notice */}
       {message.status === 'error' && (
-        <div style={{ fontSize: '0.65rem', color: '#ef4444', marginTop: '0.15rem' }}>
-          Message failed to send. Please try again.
+        <div style={{ fontSize: '0.65rem', color: theme.colors.danger, marginTop: '0.15rem' }}>
+          {m.chatError}
         </div>
       )}
     </div>
@@ -285,6 +308,8 @@ interface InputBarProps {
 }
 
 function InputBar({ placeholder, allowAttachments, onSend }: InputBarProps) {
+  const { theme } = useTheme();
+  const m = useMessages();
   const [value, setValue] = useState('');
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -310,14 +335,14 @@ function InputBar({ placeholder, allowAttachments, onSend }: InputBarProps) {
       alignItems: 'flex-end',
       gap: '0.5rem',
       padding: '0.75rem',
-      borderTop: '1px solid #e5e7eb',
-      background: '#fff',
+      borderTop: `1px solid ${theme.colors.border}`,
+      background: theme.colors.surface,
     }}>
       {allowAttachments && (
         <button
           title="Attach file"
           aria-label="Attach file"
-          style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem 0.5rem', cursor: 'pointer', fontSize: '1rem', color: '#6b7280', flexShrink: 0 }}
+          style={{ background: 'none', border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm, padding: '0.4rem 0.5rem', cursor: 'pointer', fontSize: '1rem', color: theme.colors.textMuted, flexShrink: 0 }}
         >
           📎
         </button>
@@ -331,11 +356,13 @@ function InputBar({ placeholder, allowAttachments, onSend }: InputBarProps) {
         style={{
           flex: 1,
           resize: 'none',
-          border: '1px solid #d1d5db',
-          borderRadius: '0.5rem',
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.radius.md,
           padding: '0.5rem 0.75rem',
           fontSize: '0.875rem',
-          fontFamily: 'inherit',
+          fontFamily: theme.typography.family,
+          color: theme.colors.text,
+          backgroundColor: theme.colors.surface,
           lineHeight: 1.5,
           outline: 'none',
           maxHeight: '120px',
@@ -347,17 +374,17 @@ function InputBar({ placeholder, allowAttachments, onSend }: InputBarProps) {
         onClick={handleSendClick}
         disabled={!value.trim()}
         style={{
-          background: value.trim() ? '#6366f1' : '#e5e7eb',
-          color: value.trim() ? '#fff' : '#9ca3af',
+          background: value.trim() ? theme.colors.accent : theme.colors.surfaceAlt,
+          color: value.trim() ? theme.colors.accentText : theme.colors.textMuted,
           border: 'none',
-          borderRadius: '0.5rem',
+          borderRadius: theme.radius.md,
           padding: '0.5rem 0.75rem',
           cursor: value.trim() ? 'pointer' : 'default',
           fontSize: '1rem',
           flexShrink: 0,
           transition: 'background 0.15s',
         }}
-        aria-label="Send message"
+        aria-label={m.chatSend}
       >
         ↑
       </button>
@@ -368,6 +395,8 @@ function InputBar({ placeholder, allowAttachments, onSend }: InputBarProps) {
 // ── Main renderer ──────────────────────────────────────────────────────────────
 
 export function ChatRenderer({ data, density = 'operator', onExplain, onSendMessage }: ChatRendererProps) {
+  const { theme } = useTheme();
+  const m = useMessages();
   const parsed = useMemo(() => {
     const result = ChatDataSchema.safeParse(data);
     return result.success ? result.data : null;
@@ -384,8 +413,8 @@ export function ChatRenderer({ data, density = 'operator', onExplain, onSendMess
 
   if (!parsed) {
     return (
-      <div style={{ padding: '1rem', color: '#ef4444', fontSize: '0.875rem' }}>
-        Invalid chat data.
+      <div style={{ padding: '1rem', color: theme.colors.danger, fontSize: '0.875rem' }}>
+        {m.chatInvalidData}
       </div>
     );
   }
@@ -405,11 +434,11 @@ export function ChatRenderer({ data, density = 'operator', onExplain, onSendMess
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', maxWidth: '100%', minHeight: '300px', maxHeight: '600px', border: '1px solid #e5e7eb', borderRadius: '0.75rem', overflow: 'hidden', background: '#fff' }}>
+    <div style={{ fontFamily: theme.typography.family, display: 'flex', flexDirection: 'column', maxWidth: '100%', minHeight: '300px', maxHeight: '600px', border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.lg, overflow: 'hidden', background: theme.colors.surface }}>
       {/* Header */}
       {title && (
-        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#111827', margin: 0 }}>{title}</h2>
+        <div style={{ padding: '0.75rem 1rem', borderBottom: `1px solid ${theme.colors.border}`, background: theme.colors.surfaceAlt }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, color: theme.colors.text, margin: 0 }}>{title}</h2>
         </div>
       )}
 
@@ -435,7 +464,7 @@ export function ChatRenderer({ data, density = 'operator', onExplain, onSendMess
           borderWidth: 0,
         }}
       >
-        {streamingMessageId ? 'Agent is typing' : ''}
+        {streamingMessageId ? m.chatTyping : ''}
       </span>
 
       {/* Message list — aria-live so new messages are announced to screen readers */}
@@ -446,8 +475,8 @@ export function ChatRenderer({ data, density = 'operator', onExplain, onSendMess
         style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem' }}
       >
         {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem', fontSize: '0.875rem' }}>
-            No messages yet.
+          <div style={{ textAlign: 'center', color: theme.colors.textMuted, padding: '2rem', fontSize: '0.875rem' }}>
+            {m.noData}
           </div>
         )}
 

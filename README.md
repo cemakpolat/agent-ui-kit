@@ -1,284 +1,375 @@
-# agent-ui-kit · HARI v0.1
+# HARI — Human–Agent Reasoning Interface
 
-**Universal Human–Agent Runtime Interface** — an intent-driven, trust-aware UI architecture for agentic platforms.
+> UI is not output. It is perception.
 
-> The UI is not an output. It is a negotiated, living conversation between human and agent — made visible, safe, and actionable.
-
-**HARI enables bidirectional human-agent interaction** — agents can propose comparisons, diagnostics, forms, reports, or any interface pattern needed for the task, while users can provide structured input, clarify intent, and negotiate understanding through lightweight controls.
-
-📋 **[For detailed implementation notes, see IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** — forms, documents, new scenarios, and architecture updates as of 2026-02-22.
+> **Feature Freeze — March 2 – June 1, 2026.** v1.0.0 is declared stable. The architecture is locked. During this 90-day window only bug fixes, spec clarifications, and test additions are accepted. Read `CONTRIBUTING.md` before opening a PR. New features wait for v1.1.0.
 
 ---
 
-## Core Idea
+## The Problem
 
-Traditional apps render predefined screens. Agentic systems need something different: **interfaces that are dynamic, contextual, and negotiated in real time**.
+Agents are fast. Humans are slow.
 
-HARI treats the UI as a **bidirectional runtime contract**:
-- The **agent proposes** a view based on its current understanding (comparisons, diagnostics, reports)
-- The **agent requests** structured input when needed (forms, configuration, parameters)
-- The **user responds** through interaction, clarification, correction, or data input
-- The **agent adapts**, refining both its reasoning and the UI
+This is not a bug. It is the fundamental asymmetry that HARI is built around.
 
-### Supported Interaction Patterns
+When an autonomous agent makes a decision in milliseconds, a human cannot
+meaningfully oversee it in that same window. So we have two choices:
 
-HARI supports the full spectrum of human-agent interaction:
+1. Let agents act without oversight and hope they are right.
+2. Build infrastructure that **slows the system down to human time** — not to
+   create friction, but to create real governance.
 
-| Pattern | Direction | Purpose | Examples |
-|---------|-----------|---------|----------|
-| **Comparisons** | Agent → User | Present options for decision-making | Flight search, product comparison, vendor selection |
-| **Diagnostics** | Agent → User | Surface system state and health | Dashboards, monitoring, alerts, metrics |
-| **Documents** | Agent → User | Deliver detailed explanations and reports | Post-mortems, analysis, documentation, narratives |
-| **Forms** | User → Agent | Collect structured input | Configuration, preferences, authentication, parameters |
-| **Ambiguity Controls** | User ↔ Agent | Negotiate intent and refine understanding | Sliders, toggles, filters, selections |
-| **Actions** | User → Agent | Execute operations with safety guarantees | Deploy, restart, delete, purchase |
+HARI is option 2.
 
 ---
 
-## Architecture
+## What HARI Is
+
+HARI is the **perception and governance layer** between human judgment and
+machine autonomy.
+
+It is not a UI framework. It is not a component library. It is not a dashboard tool.
+
+It is the answer to the question: *how does a human govern something that moves
+faster than they can watch?*
+
+The answer is: **you do not watch it. You perceive it.**
+
+Perception is different from watching. Watching is passive reception — you look
+at a screen and process whatever is shown. Perception is active and anchored —
+you ask a question, you receive a view that answers it, you govern based on what
+you understand.
+
+HARI enforces this distinction technically.
+
+---
+
+## The Vision
+
+Every view in HARI must answer a question the human actually asked.
+
+There are no persistent screens. There are no dashboards. There are no menus of
+options. There is a question, and there is a perception of the system state
+that answers it — with a confidence level, an expiration time, and a clear
+statement of what the agent does not know.
+
+When the answer expires, the view degrades and disappears.
+When the question changes, the view changes.
+When the agent is uncertain, the human sees the uncertainty.
+
+The human is never looking at a static representation of state. They are always
+answering a specific question with time-bounded, uncertainty-honest perception.
+
+This is what it means for UI to be perception rather than output.
+
+---
+
+## How It Works
+
+### 1. The human asks a question
+
+Explicitly: "Is the EU payment cluster healthy right now?"
+Or implicitly, inferred from navigation, alerts, or prior context.
+
+The question is captured as a `QuestionIntent` — a typed, structured object with
+urgency, origin, domain, and follow-up scaffolding.
+
+### 2. The agent reasons and produces a Perception Contract
+
+The LLM does not produce HTML. It does not choose layouts. It does not decide
+what to emphasize.
+
+It produces a `SituationalPerception` — a structured JSON object that declares:
+- What question it is answering
+- What it observed (evidence, separated from recommendations)
+- How confident it is
+- What it does not know
+- When this perception expires
+
+This is the hard boundary between machine and human. HARI validates it before
+anything is rendered.
+
+### 3. HARI validates and renders
+
+The Perception Contract is validated against a schema. In STRICT mode, invalid
+output is rejected entirely — the human sees an "Insufficient Information" view
+rather than hallucinated UI.
+
+Valid contracts are rendered using the intent compiler, which translates
+structured data into the appropriate component tree.
+
+### 4. The human governs
+
+Every proposed action is wrapped as an **Authority Request** — a formal object
+that declares who must approve, why escalation is required, and what happens if
+not approved. Humans approve, reject, escalate, or modify. Every decision
+becomes a **Decision Record** — an auditable governance artifact linked to the
+question, the perception, and the authority mode at the time of decision.
+
+---
+
+## The Architecture
 
 ```
-agent-ui-kit/
-├── packages/
-│   ├── core/          @hari/core — schemas, compiler, state stores
-│   ├── ui/            @hari/ui   — React component library
-│   └── demo/          @hari/demo — live demo (Travel + CloudOps scenarios)
+Human question
+     │
+     ▼
+QuestionIntent (typed, structured)
+     │
+     ▼
+LLM reasoning + tool calls
+     │
+     ▼
+SituationalPerception (validated JSON — Perception Contract)
+     │
+     ├── STRICT validation → reject if invalid, show "Insufficient Information"
+     │
+     ▼
+Intent compiler → React component tree
+     │
+     ├── TrustSurface (authority mode, confidence, validity, approval state)
+     ├── QuestionIntentBar (the question — always visible, never decorative)
+     ├── Domain renderer (chart, form, timeline, etc.)
+     └── GovernedActionPanel × n (Authority Requests, not buttons)
+                              │
+                              ▼
+                        DecisionRecord (auto-generated, linked to perception + question)
 ```
 
-### `@hari/core`
+---
 
-The contract layer. Framework-agnostic TypeScript.
+## Non-Goals
 
-| Module | Purpose |
+HARI explicitly does not:
+
+**Build dashboards.**
+Dashboards are permanent. Perception is temporary. Every view has an expiration
+condition — it degrades and disappears when it is no longer relevant.
+
+**Optimize for speed.**
+HARI deliberately slows approval flows. Confirmation delays and deliberation
+gates are features. High-stakes decisions require time.
+
+**Build a prompt UI.**
+The human should not be writing prompts to govern agents. They should be asking
+questions, reviewing perception, and making deliberate decisions.
+
+**Add more UI components.**
+The rendering surface is complete. 13 intent type renderers cover every common
+data shape. What remains is architectural declaration — locking in the governance
+model so it cannot be misused.
+
+**Hide uncertainty.**
+Confidence, unknowns, and assumptions are never optional. A confident-looking
+view of uncertain data is a failure mode, not a feature.
+
+---
+
+## Monorepo Structure
+
+```
+packages/
+  core/          @hari/core      — schemas, transport, governance engine, telemetry
+  ui/            @hari/ui        — React components, hooks
+  demo/          @hari/demo      — interactive demo app (Vite/React)
+  dev-services/  @hari/dev-services — SSE/WS/MCP servers + governance audit backend
+
+docs/
+  PERCEPTION-CONTRACT.md    — authoritative Perception Contract spec v1
+  HARI-WITH-LLMS.md         — how to integrate LLMs without misuse
+```
+
+---
+
+## What Is Built
+
+### Core Library (`@hari/core`)
+
+**Perception schemas:**
+
+| Schema | Concept |
 |---|---|
-| `schemas/intent.ts` | `IntentPayload` — the JSON contract between agent and frontend |
-| `schemas/action.ts` | `AgentAction` + `ActionSafety` + `BlastRadius` |
-| `schemas/ambiguity.ts` | `AmbiguityControl` — range sliders, toggles, chip selects |
-| `schemas/form.ts` | `FormField` — 9 field types with validation, conditional visibility |
-| `schemas/document.ts` | `DocumentBlock` — 12 block types for rich long-form content |
-| `schemas/explainability.ts` | `ExplainabilityContext` — reasoning surfaces |
-| `compiler/registry.ts` | `ComponentRegistryManager` — `(domain, intentType, density) → component` |
-| `compiler/compiler.ts` | `compileIntent()` — intent → `CompiledView` |
-| `store/intent.ts` | Zustand store — current intent + negotiation patches |
-| `store/ui.ts` | Zustand store — density override, explain panels, confirmations |
+| `situational-view.ts` | `SituationalView` — time-bounded, question-anchored perception unit |
+| `situational-view.ts` | `SituationalPerception` — canonical top-level render pipeline entry point |
+| `question-intent.ts` | `QuestionIntent` — the human's question, typed and structured |
+| `authority.ts` | `AuthorityMode` (observe/intervene/approve/override), escalation, capabilities |
+| `governed-action.ts` | `AuthorityRequest` / `GovernedAction`, `DecisionRecord`, `createDecisionRecord()` |
+| `approval-workflow.ts` | Multi-level `ApprovalChain`, delegation, conditional approvals, expiry |
+| `temporal-lens.ts` | Past/present/future annotation overlays |
+| `temporal-projection.ts` | What-if projections, confidence intervals, alternative timelines |
+| `uncertainty.ts` | `UncertaintyIndicator`, sensitivity analysis, confidence degradation |
+| `collaboration.ts` | `DecisionLock`, `ConflictRecord`, authority sync, escalation notifications |
 
-### `@hari/ui`
+**General intent schemas:** action, ambiguity, calendar, chat, diagram, document,
+explainability, form, intent, kanban, map, presence, question-intent, snapshot,
+timeline, tree, workflow.
 
-React components. All use inline styles — no CSS framework dependency.
+**Compiler:**
 
-| Component | Purpose |
+| Export | Purpose |
 |---|---|
-| `IntentRenderer` | Top-level orchestrator — renders compiled view + actions + explain panels |
-| `BlastRadiusBadge` | Visualises action risk, scope, affected systems |
-| `ExplainPanel` | "Why am I seeing this?" — queryable reasoning surface |
-| `AmbiguityControls` | Inline controls for intent negotiation |
-| `DensitySelector` | User density override (Executive / Operator / Expert) |
-| `FormRenderer` | Form orchestrator — validation, conditional fields, sections |
-| `DocumentRenderer` | Long-form content — 12 block types including tables, charts, images |
-| `FlightCard{Executive,Operator,Expert}` | Travel domain, 3 density variants |
-| `MetricCard` | CloudOps domain with sparkline |
+| `compileIntent()` | Transforms `IntentPayload` → `CompiledView` |
+| `ValidationMode` | `STRICT \| LENIENT \| DIAGNOSTIC` LLM output validation |
+| `LLMValidationError` | Thrown in STRICT mode on schema violations |
 
-### `@hari/demo`
+**Transport:** `MockAgentBridge`, `SSEAgentBridge`, `WebSocketAgentBridge`,
+`MCPAgentBridge`, `GovernanceAgentBridge` (adds authority enforcement + audit
+recording to any bridge).
 
-A Vite + React app with complete scenarios across all interaction patterns:
+**Governance engine:** `GovernanceAuditClient` (REST), `CollaborationClient` (WebSocket).
 
-| Scenario | Intent Type | Key Features |
-|---|---|---|
-| **Travel** | `comparison` | Price vs comfort slider, carbon toggle, stops filter, Book flight (HIGH blast radius, 2-step confirm with 1.5 s delay) |
-| **CloudOps** | `diagnostic_overview` | 4 metric cards + sparklines, Restart Replica (CRITICAL, 2-step confirm), Primary/Replica single-select ambiguity |
-| **IoT Sensors** | `diagnostic_overview` | Real-time sensor readings, threshold alerts, status monitoring |
-| **Deployment Config** | `form` | 9 field types, validation, conditional fields, sections, sensitive data handling |
-| **SRE Post-Mortem** | `document` | Multi-section structure, AI confidence, code blocks, metrics, timelines |
-| **Product Analysis** | `document` | Tables, charts, quotes, data visualizations, strategic recommendations |
+**Marketplace:** 30+ `PreconditionTemplate`s, authority hierarchy presets
+(HARI Standard, SRE, Finance, Security, Hotfix), `GovernancePattern` schema.
 
----
+**Telemetry:** `GovernanceMetrics` — authority mode transitions, decision latency, confidence tracks.
 
-## Key Design Principles
+### UI Components (`@hari/ui`)
 
-### Intent over Layout
+**Governance components:**
 
-```json
-{
-  "intent": "compare_options",
-  "domain": "travel",
-  "primaryGoal": "Find cheapest LHR → JFK flight",
-  "confidence": 0.72,
-  "ambiguities": [
-    { "type": "range_selector", "label": "Price vs Comfort", ... }
-  ]
-}
-```
+| Component | What It Renders |
+|---|---|
+| `TrustSurface` | **Mandatory** — authority mode, confidence, temporal validity, approval state |
+| `SituationalViewRenderer` | Orchestrates all governance layers around domain content |
+| `QuestionIntentBar` | The active question — always visible, never decorative |
+| `AuthorityModeSwitch` | Observe/Intervene/Approve/Override switcher with escalation justification |
+| `GovernedActionPanel` | Authority Request context, preconditions, deliberation timer |
+| `ApprovalWorkflowPanel` | Multi-level chains, delegation, conditional approvals, expiry countdown |
+| `TemporalLensOverlay` | Past/present/future overlay on any intent payload |
+| `TemporalProjectionPanel` | What-if analysis, alternative timeline comparison |
+| `UncertaintyAggregator` | Confidence degradation, sensitivity analysis |
+| `UncertaintyIndicators` | Per-indicator confidence badges |
+| `DecisionRecordViewer` | Decision timeline display |
+| `VirtualDecisionTimeline` | Virtualized timeline for large decision histories |
+| `DecisionStreamPanel` | Real-time streaming decision feed |
+| `BlastRadiusBadge` | Impact scope visualization |
 
-The agent describes **what**, not **how**. The frontend compiles layout.
+**General renderers:** `IntentRenderer`, `ChatRenderer`, `DocumentRenderer`,
+`FormRenderer`, `DiagramRenderer`, `KanbanRenderer`, `MapRenderer`,
+`CalendarRenderer`, `TimelineRenderer`, `TreeRenderer`, `WorkflowRenderer`,
+`CollaborativeDocumentEditor`.
 
-### Density Authority Hierarchy
-
-```
-User preference  >  System policy  >  Agent recommendation
-```
-
-Three modes: **Executive** (KPIs only), **Operator** (tables + filters), **Expert** (raw data + diagnostics).
-
-### Action Safety
-
-```json
-{
-  "safety": {
-    "reversible": false,
-    "riskLevel": "high",
-    "requiresConfirmation": true,
-    "confirmationDelay": 1500,
-    "blastRadius": {
-      "scope": "org",
-      "affectedSystems": ["billing", "inventory"]
-    }
-  }
-}
-```
-
-No irreversible action is visually indistinguishable from a safe one.
-
-### Negotiation Loop
-
-1. User adjusts ambiguity control
-2. Optimistic local re-sort (instant)
-3. Patch sent to agent: `{ event: "intent_modification", modifications: { ... } }`
-4. Agent decides: cheap re-sort or expensive refetch → sends updated intent
-
-### Graceful Degradation
-
-- Unknown component type → `FallbackView` (raw JSON, never a crash)
-- Low confidence → inline warning banner
-- MCP unavailable → cached summary with timestamp
+**Hooks:** `useAgentBridge`, `useDecisionStream`, `useTemporalLensCache`,
+`useDocumentCollaboration`, `useVoiceInput`, `useIntersectionMount`.
 
 ---
 
-## Getting Started
+## Quick Start
 
 ```bash
-# Install dependencies
+git clone <repo>
+cd agent-ui-kit
 pnpm install
+pnpm dev   # http://localhost:5173
+```
 
-# Run the demo
-pnpm dev
+Tests:
 
-# Typecheck all packages
-pnpm typecheck
-
-# Build all packages
-pnpm build
+```bash
+pnpm test
+pnpm --filter @hari/core test --run
+pnpm --filter @hari/ui test --run
 ```
 
 ---
 
-## Implementation Status
+## Integrating with LLMs
 
-**v0.1 (Complete):** Core architecture, schemas, and components
-- ✅ Intent-driven UI compilation
-- ✅ All 6 interaction patterns (comparisons, diagnostics, documents, forms, ambiguity controls, actions)
-- ✅ Form system (9 field types, validation, conditional visibility)
-- ✅ Document system (12 block types, tables, charts, quotes, embeds)
-- ✅ Action safety with blast radius visualization
-- ✅ Confidence indicators and explainability contexts
-- ✅ Demo scenarios (travel, CloudOps, IoT, deployment forms, analytics reports)
-- ✅ Full TypeScript type coverage
+Read [docs/HARI-WITH-LLMS.md](docs/HARI-WITH-LLMS.md) before building any
+LLM integration. The document covers the 4-stage flow, common bad LLM behaviors,
+prompting guidelines, and how HARI rejects unsafe output.
 
-**v0.2 (Planned):** Demo integration & testing
-- [ ] Wire form and document scenarios into App.tsx
-- [ ] Register FormRenderer in component registry
-- [ ] Unit tests for form validation and document rendering
-- [ ] Manual integration testing across all scenarios
+Short checklist:
 
-**v0.3+ (Future):** Advanced features
-- [ ] File upload with preview and progress
-- [ ] Real charting library integration (Recharts)
-- [ ] Streaming JSON parser (progressive intent rendering)
-- [ ] Real MCP agent backend integration
-- [ ] New intent types (Workflow, Timeline, Chat, Kanban)
-- [ ] Hypothetical mode (isolated "what-if" overlay)
-- [ ] WCAG 2.2 AA accessibility audit
-- [ ] Schema versioning & capability discovery
+- [ ] Prompt LLM to produce `SituationalPerception` JSON, not prose
+- [ ] Use `STRICT` validation mode in production
+- [ ] `originatingQuestion` must be a real question (not "dashboard", "status")
+- [ ] Set `expiresAt` or `invalidationCondition` on every view
+- [ ] Separate `evidence` from `recommendations`
+- [ ] Call `assertPerceptionNotExpired()` before any approval
 
 ---
 
-## Schema Versioning
+## Perception Contract Specification
 
-Every `IntentPayload` carries a `version` field (`semver`). Frontends are expected to:
-1. Check the version on receipt
-2. Transform or gracefully degrade older versions
-3. Respond to unknown fields with `FallbackView`, not errors
+Read [docs/PERCEPTION-CONTRACT.md](docs/PERCEPTION-CONTRACT.md) for the
+authoritative specification: allowed intent types, required uncertainty fields,
+forbidden LLM behaviors, validation modes, and safe degradation rules.
 
 ---
 
-## Schema Capabilities
+## Governance System
 
-### Form Fields (9 types)
-- **text** — single/multi-line text, password support
-- **number** — numeric input with min/max/step, unit display
-- **datetime** — date, time, or datetime picker
-- **select** — single/multi-select dropdown, searchable
-- **checkbox** — boolean toggle
-- **radio** — exclusive options with vertical/horizontal layout
-- **file** — file upload with preview, MIME type filtering
-- **slider** — range input with labels
-- **hidden** — hidden values for form state
+The governance model in short:
 
-**Features:** Real-time validation, conditional visibility, sensitive data handling, section organization, collapsible groups
+| Rule | Why |
+|------|-----|
+| Every view answers a question | No question = no anchor for judgment |
+| Every view expires | No expiry = permanent dashboard = forbidden |
+| Every action is an Authority Request | Buttons are not governance |
+| Every decision creates a record | Use `createDecisionRecord()` — auto-linked |
+| Uncertainty is always visible | Hidden uncertainty destroys trust |
 
-### Document Blocks (12 types)
-- **heading** — h1-h6 section titles
-- **paragraph** — text with AI confidence indicators
-- **list** — ordered/unordered lists
-- **code** — syntax-highlighted code blocks
-- **callout** — info/warning/insight/critical alerts
-- **metric** — KPI cards with trend arrows
-- **table** — data tables with sortable columns, striping
-- **image** — images with captions, sizing
-- **quote** — blockquotes with attribution
-- **dataviz** — charts (line, bar, pie, sparkline)
-- **embed** — iframe embeds for external content
-- **divider** — visual section separators
+See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for integration patterns.
 
-**Features:** Living documents (auto-refresh), version tracking, sources attribution, confidence scoring, table of contents
+---
 
-## File Reference
+## Running the Full Stack
 
+```bash
+# Terminal 1 — backend services
+cd packages/dev-services
+pnpm dev   # SSE :3001, WS :3002, MCP :3003, Governance :3004
+
+# Terminal 2 — demo UI
+pnpm --filter @hari/demo dev   # http://localhost:5173
 ```
-packages/core/src/
-  schemas/
-    intent.ts          IntentPayload, IntentPayloadInput, IntentModification
-    action.ts          AgentAction, ActionSafety, BlastRadius
-    ambiguity.ts       AmbiguityControl (discriminated union of 4 types)
-    form.ts            FormField (9 types), FormSection, FormSubmission
-    document.ts        DocumentBlock (12 types), DocumentSection, DocumentData
-    explainability.ts  ExplainabilityContext, DataSource
-  compiler/
-    registry.ts        ComponentRegistryManager
-    compiler.ts        compileIntent(), buildModificationPatch()
-  store/
-    intent.ts          useIntentStore
-    ui.ts              useUIStore
 
-packages/ui/src/components/
-  IntentRenderer.tsx
-  FormRenderer.tsx
-  DocumentRenderer.tsx
-  BlastRadiusBadge.tsx
-  ExplainPanel.tsx
-  AmbiguityControls.tsx
-  primitives/DensitySelector.tsx
-  domain/travel/FlightCard.tsx
-  domain/cloudops/MetricCard.tsx
-  domain/iot/SensorCard.tsx
+Or with Docker:
 
-packages/demo/src/
-  scenarios/
-    travel.ts                     Travel comparison with 3 flights + actions
-    cloudops.ts                   CloudOps diagnostics with 4 metrics
-    iot.ts                        IoT sensor monitoring
-    form-deployment.ts            Deployment configuration form (9 field types)
-    document.ts                   SRE post-mortem report
-    document-product-analysis.ts  Product analytics with tables, charts, quotes
-  registry/index.tsx              Application-level component registry
-  App.tsx                         Demo shell with scenario switcher
+```bash
+docker-compose up
+pnpm --filter @hari/demo dev
 ```
+
+---
+
+## Status
+
+| Area | Status |
+|---|---|
+| SituationalPerception top-level schema | ✅ |
+| LLM Validation Modes (STRICT / LENIENT / DIAGNOSTIC) | ✅ |
+| TrustSurface component (mandatory) | ✅ |
+| Expiration semantics (expiresAt + invalidationCondition required) | ✅ |
+| Authority Request terminology + display context | ✅ |
+| Decision Record auto-generation with perception/question links | ✅ |
+| Evidence vs recommendation separation | ✅ |
+| Perception Contract Specification doc | ✅ |
+| HARI With LLMs integration guide | ✅ |
+| Transport layer (Mock/SSE/WS/MCP) | ✅ |
+| GovernanceAgentBridge | ✅ |
+| Approval workflows | ✅ |
+| Temporal lens + what-if projections | ✅ |
+| Audit backend | ✅ |
+| Real-time collaboration | ✅ |
+| Core tests: 610 | ✅ All passing |
+
+---
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [WHY-HARI.md](WHY-HARI.md) | **Read this first** — why HARI must exist, the canonical story, the synchronizer |
+| [docs/PERCEPTION-CONTRACT.md](docs/PERCEPTION-CONTRACT.md) | Normative v1 spec — what is a valid perception, what is forbidden |
+| [CONFORMANCE.md](CONFORMANCE.md) | What "HARI-compatible" means — MUST/SHOULD requirements |
+| [VERSIONING.md](VERSIONING.md) | Stability guarantees, breaking change policy, what never changes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | **Feature freeze rules** — what is accepted/rejected, how to submit bug fixes |
+| [ANTI-PATTERNS.md](ANTI-PATTERNS.md) | 8 misuse patterns, why each fails, runtime warning reference |
+| [examples/README.md](examples/README.md) | **Reference integrations** — OpenAI, Ollama, and multi-agent backend orchestration |
+| [docs/HARI-WITH-LLMS.md](docs/HARI-WITH-LLMS.md) | The 4-stage flow, bad LLM behaviors, prompting, model compatibility |
+| [HARI_DOCTRINE.md](HARI_DOCTRINE.md) | Design philosophy, principles |
+| [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) | Component integration, custom renderers, governance extension |
+| [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) | Backend patterns for OpenAI, Claude, Ollama |
+| [ACCOMPLISHMENTS.md](ACCOMPLISHMENTS.md) | Complete build history across all phases |

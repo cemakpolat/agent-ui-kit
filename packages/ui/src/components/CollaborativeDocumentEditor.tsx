@@ -14,6 +14,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Check } from 'lucide-react';
+import { normalizeListItemText } from '@hari/core';
 import type { DocumentSection, DocumentBlock, BlockCommentMap } from '@hari/core';
 import type {
   UseDocumentCollaborationOptions,
@@ -535,7 +537,7 @@ function BlockPreview({
           onDoubleClick={onDoubleClick}
           style={{ ...baseStyle, paddingLeft: '1.25rem', fontSize: '0.875rem', color: '#334155' }}
         >
-          {block.items.map((item, i) => <li key={i}>{item}</li>)}
+          {block.items.map((item, i) => <li key={i}>{typeof item === 'object' ? item.text : item}</li>)}
         </ul>
       );
     case 'code':
@@ -618,7 +620,7 @@ function BlockEditor({
   );
 
   const [listItems, setListItems] = useState<string[]>(
-    block.type === 'list' ? [...block.items] : [],
+    block.type === 'list' ? block.items.map(normalizeListItemText) : [],
   );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -789,7 +791,7 @@ function InsertBlockButton({ onInsert }: { onInsert: (block: DocumentBlock) => v
     { label: 'H Heading', block: { type: 'heading', level: 3, text: 'New Heading' } },
     { label: '• List', block: { type: 'list', items: ['Item 1', 'Item 2'], ordered: false } },
     { label: '</> Code', block: { type: 'code', code: '// code here', language: 'typescript' } },
-    { label: '⚠ Callout', block: { type: 'callout', variant: 'info', text: 'Note…' } },
+    { label: 'Callout', block: { type: 'callout', variant: 'info', text: 'Note…' } },
     { label: '— Divider', block: { type: 'divider' } },
   ];
 
@@ -888,9 +890,9 @@ function CommentThread({
             onClick={onResolve}
             title="Resolve comment"
             aria-label="Resolve comment"
-            style={{ fontSize: '0.65rem', color: '#16a34a', border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ fontSize: '0.65rem', color: '#16a34a', border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '0.2rem' }}
           >
-            ✓ Resolve
+            <Check size={12} /> Resolve
           </button>
         )}
         {comment.resolved && (

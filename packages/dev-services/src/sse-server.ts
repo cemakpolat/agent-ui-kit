@@ -1,5 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { URL } from 'url';
+import { execSync } from 'child_process';
 import {
   generateIntentModification,
   generateRandomModification,
@@ -7,6 +8,49 @@ import {
   ensureModelAvailable,
 } from './agent.js';
 import { getScenario, SCENARIOS, listScenarios, ScenarioId } from './scenarios.js';
+
+/** A running process entry from the OS */
+interface ProcessInfo {
+  user: string;
+  pid: string;
+  cpu: number;
+  mem: number;
+  vsz: number;
+  rss: number;
+  command: string;
+}
+
+/**
+ * Get the top running processes from the OS using `ps aux`.
+ * Works on macOS and Linux.
+ */
+function getSystemProcesses(topN = 20): ProcessInfo[] {
+  try {
+    const output = execSync('ps aux', { encoding: 'utf8', timeout: 5000 });
+    const lines = output.trim().split('\n');
+    // Skip header line
+    const processes = lines.slice(1).map((line): ProcessInfo | null => {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 11) return null;
+      return {
+        user: parts[0],
+        pid: parts[1],
+        cpu: parseFloat(parts[2]) || 0,
+        mem: parseFloat(parts[3]) || 0,
+        vsz: parseInt(parts[4], 10) || 0,
+        rss: parseInt(parts[5], 10) || 0,
+        // Column 10+ is the command name
+        command: parts.slice(10).join(' '),
+      };
+    });
+    return (processes.filter(Boolean) as ProcessInfo[])
+      .sort((a, b) => b.cpu - a.cpu)
+      .slice(0, topN);
+  } catch (err) {
+    console.error('[SSE] Failed to read system processes:', err);
+    return [];
+  }
+}
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 
@@ -232,6 +276,11 @@ const server = createServer((req, res) => {
   if (pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', service: 'sse-server' }));
+  } else if (pathname === '/api/processes' && req.method === 'GET') {
+    const topN = parseInt(url.searchParams.get('top') || '20', 10);
+    const processes = getSystemProcesses(topN);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ processes, timestamp: Date.now() }));
   } else if (pathname === '/stream' && req.method === 'GET') {
     handleSSEStream(res, sessionId);
   } else if (req.method === 'POST') {

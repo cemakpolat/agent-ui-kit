@@ -14,12 +14,31 @@ export * from './schemas/chat';
 export * from './schemas/snapshot';
 export * from './schemas/presence';
 export * from './schemas/diagram';
+export * from './schemas/map';
+
+// Governance & Perception Schemas (v0.3+)
+export * from './schemas/situational-view';
+export * from './schemas/question-intent';
+export * from './schemas/authority';
+export * from './schemas/governed-action';
+export * from './schemas/temporal-lens';
+export * from './schemas/uncertainty';
+export * from './schemas/approval-workflow';
+export * from './schemas/temporal-projection';
+
+// Phase 5: Backend Integration
+export * from './schemas/collaboration';
+export * from './audit/index';
+export * from './collaboration/index';
 
 // Compiler
 export * from './compiler/registry';
 export * from './compiler/compiler';
 export * from './compiler/version';
 export * from './compiler/migrate';
+export * from './compiler/data-validator';
+export * from './compiler/intent-builder';
+export * from './compiler/diagram-generator';
 
 // Stores
 export * from './store/intent';
@@ -33,3 +52,6 @@ export * from './telemetry/index';
 
 // Validation & Trust Testing
 export * from './validation/index';
+
+// Phase 8.1 — Governance Marketplace
+export * from './marketplace/index';

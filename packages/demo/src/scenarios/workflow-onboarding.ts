@@ -32,7 +32,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
         description: 'Basic identity and ownership information for the new service.',
         status: 'completed',
         type: 'form',
-        icon: '📋',
+        icon: 'clipboard',
         skippable: false,
         fields: [
           {
@@ -100,7 +100,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
         description: 'Runtime environment, compute resources, and scaling policy.',
         status: 'in_progress',
         type: 'form',
-        icon: '🖥',
+        icon: 'server',
         skippable: false,
         fields: [
           {
@@ -189,7 +189,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
         description: 'Configure metrics, logging, alerting, and on-call assignment.',
         status: 'pending',
         type: 'form',
-        icon: '📊',
+        icon: 'observability',
         skippable: false,
         fields: [
           {
@@ -253,7 +253,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
         description: 'IAM roles, secret injection, and inter-service authorisation.',
         status: 'pending',
         type: 'form',
-        icon: '🔒',
+        icon: 'lock',
         skippable: true,
         fields: [
           {
@@ -299,7 +299,7 @@ export const workflowOnboardingIntent: IntentPayloadInput = {
         description: 'Confirm the settings below before creating the service.',
         status: 'pending',
         type: 'review',
-        icon: '✅',
+        icon: 'check',
         skippable: false,
         reviewItems: [
           { label: 'Service Name', value: '(from Step 1)', highlight: true },

@@ -35,7 +35,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-01-26T10:58:00',
         category: 'deploy',
         status: 'completed',
-        icon: '🚀',
+        icon: 'deploy',
         metadata: {
           service: 'api-gateway',
           version: 'v1.18.0',
@@ -52,7 +52,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         timestamp: '2026-01-28T14:10:00',
         category: 'config',
         status: 'completed',
-        icon: '⚙',
+        icon: 'config',
         metadata: {
           changed_by: 'bob@example.com',
           config_key: 'gateway.rateLimit.perTenant',
@@ -70,7 +70,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-02-03T09:44:00',
         category: 'incident',
         status: 'completed',
-        icon: '🔥',
+        icon: 'fire',
         metadata: {
           severity: 'P2',
           duration: '87 min',
@@ -88,7 +88,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-02-03T10:18:00',
         category: 'deploy',
         status: 'completed',
-        icon: '🩹',
+        icon: 'hotfix',
         metadata: {
           service: 'api-gateway',
           version: 'v1.18.1',
@@ -105,7 +105,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-02-06T11:55:00',
         category: 'deploy',
         status: 'completed',
-        icon: '🚀',
+        icon: 'deploy',
         metadata: {
           service: 'api-gateway',
           version: 'v1.19.0',
@@ -124,7 +124,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         timestamp: '2026-02-10T03:00:00',
         category: 'config',
         status: 'completed',
-        icon: '🔐',
+        icon: 'lock',
         metadata: {
           changed_by: 'cert-bot (automated)',
           cert_expiry_before: '2026-02-14',
@@ -139,7 +139,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-02-12T14:22:00',
         category: 'deploy',
         status: 'completed',
-        icon: '🚀',
+        icon: 'deploy',
         metadata: {
           service: 'api-gateway',
           version: 'v1.20.0',
@@ -158,7 +158,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         timestamp: '2026-02-17T09:00:00',
         category: 'config',
         status: 'completed',
-        icon: '📈',
+        icon: 'scale',
         metadata: {
           region: 'US-EAST, EU-WEST',
           node_count_before: 6,
@@ -174,7 +174,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-02-18T13:49:00',
         category: 'incident',
         status: 'completed',
-        icon: '🔥',
+        icon: 'incident',
         metadata: {
           severity: 'P1',
           duration: '47 min',
@@ -193,7 +193,7 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-02-18T14:06:00',
         category: 'deploy',
         status: 'completed',
-        icon: '⏪',
+        icon: 'rollback',
         metadata: {
           service: 'api-gateway',
           version: 'v1.19.0',
@@ -212,14 +212,14 @@ export const timelineDeploymentsIntent: IntentPayloadInput = {
         endTimestamp: '2026-02-23T11:32:00',
         category: 'deploy',
         status: 'in_progress',
-        icon: '🚀',
+        icon: 'deploy',
         metadata: {
           service: 'api-gateway',
           version: 'v1.20.1',
           environment: 'production',
           deployed_by: 'alice@example.com',
           rollout_strategy: 'canary (10%)',
-          canary_health: '✓ 0 errors in 17 min',
+          canary_health: '0 errors in 17 min',
           jira: 'GW-441',
         },
         explainElementId: 'deploy-v1-20-1-explain',

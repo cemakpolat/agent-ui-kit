@@ -61,3 +61,5 @@ export const AgentActionSchema = z.object({
 });
 
 export type AgentAction = z.infer<typeof AgentActionSchema>;
+/** Input type — variant and disabled have defaults, so they're optional when constructing */
+export type AgentActionInput = z.input<typeof AgentActionSchema>;

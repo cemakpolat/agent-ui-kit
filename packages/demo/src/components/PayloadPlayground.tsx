@@ -7,6 +7,7 @@ import {
 } from '@hari/core';
 import { IntentRenderer, IntentErrorBoundary } from '@hari/ui';
 import { registry } from '../registry';
+import { CheckCircle2, XCircle, Puzzle } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PayloadPlayground — FUTURE_TASKS §10b
@@ -186,21 +187,21 @@ export function PayloadPlayground() {
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', padding: '1.5rem 2rem', background: '#f8fafc', boxSizing: 'border-box' }}>
+    <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', padding: '1.5rem 2rem', background: 'var(--hari-bg)', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ marginBottom: '1.25rem' }}>
-        <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--hari-text)', margin: 0 }}>
           Payload Playground
         </h1>
-        <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0.3rem 0 0' }}>
+        <p style={{ fontSize: '0.8rem', color: 'var(--hari-text-secondary)', margin: '0.3rem 0 0' }}>
           Paste any HARI intent payload as JSON — get live schema validation and rendered output.
         </p>
       </div>
 
       {/* Template picker */}
       <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.25rem' }}>
+        <span style={{ fontSize: '0.72rem', color: 'var(--hari-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.25rem' }}>
           Starter:
         </span>
         {Object.keys(STARTER_TEMPLATES).map((key) => (
@@ -212,10 +213,10 @@ export function PayloadPlayground() {
               fontSize: '0.72rem',
               fontWeight: 600,
               border: '1px solid',
-              borderColor: activeTemplate === key ? '#6366f1' : '#e2e8f0',
+              borderColor: activeTemplate === key ? '#6366f1' : 'var(--hari-border)',
               borderRadius: '99px',
-              background: activeTemplate === key ? '#ede9fe' : 'white',
-              color: activeTemplate === key ? '#4f46e5' : '#475569',
+              background: activeTemplate === key ? '#ede9fe' : 'var(--hari-surface)',
+              color: activeTemplate === key ? '#4f46e5' : 'var(--hari-text-secondary)',
               cursor: 'pointer',
               textTransform: 'capitalize',
             }}
@@ -224,12 +225,12 @@ export function PayloadPlayground() {
           </button>
         ))}
         <div style={{ flexGrow: 1 }} />
-        <label style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+        <label style={{ fontSize: '0.72rem', color: 'var(--hari-text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           Density:
           <select
             value={density}
             onChange={(e) => setDensity(e.target.value as 'executive' | 'operator' | 'expert')}
-            style={{ fontSize: '0.72rem', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '0.2rem 0.4rem' }}
+            style={{ fontSize: '0.72rem', border: '1px solid var(--hari-border)', borderRadius: '0.375rem', padding: '0.2rem 0.4rem', background: 'var(--hari-surface)', color: 'var(--hari-text)' }}
           >
             <option value="executive">Executive</option>
             <option value="operator">Operator</option>
@@ -246,7 +247,7 @@ export function PayloadPlayground() {
 
           {/* Toolbar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--hari-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               JSON Payload
             </span>
             <button
@@ -254,8 +255,8 @@ export function PayloadPlayground() {
               title="Prettify JSON"
               style={{
                 fontSize: '0.7rem', padding: '0.15rem 0.5rem',
-                border: '1px solid #e2e8f0', borderRadius: '0.25rem',
-                background: 'white', color: '#6b7280', cursor: 'pointer',
+                border: '1px solid var(--hari-border)', borderRadius: '0.25rem',
+                background: 'var(--hari-surface)', color: 'var(--hari-text-secondary)', cursor: 'pointer',
               }}
             >
               Format
@@ -275,7 +276,7 @@ export function PayloadPlayground() {
               fontSize: '0.72rem',
               lineHeight: 1.6,
               padding: '0.75rem',
-              border: `1.5px solid ${validation.ok ? '#22c55e' : validation.errors.length ? '#ef4444' : '#e2e8f0'}`,
+              border: `1.5px solid ${validation.ok ? '#22c55e' : validation.errors.length ? '#ef4444' : 'var(--hari-border)'}`,
               borderRadius: '0.5rem',
               resize: 'vertical',
               outline: 'none',
@@ -290,12 +291,12 @@ export function PayloadPlayground() {
           <div style={{ minHeight: '1.5rem' }}>
             {validation.ok ? (
               <div style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span>✓</span> Valid payload — {compiled ? `compiled as ${compiled.type}` : 'compiler error'}
+                <CheckCircle2 size={14} /> Valid payload — {compiled ? `compiled as ${compiled.type}` : 'compiler error'}
               </div>
             ) : (
               <div style={{ fontSize: '0.72rem', color: '#dc2626' }}>
                 {validation.errors.map((e, i) => (
-                  <div key={i} style={{ marginBottom: '0.15rem' }}>✗ {e}</div>
+                  <div key={i} style={{ marginBottom: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}><XCircle size={14} /> {e}</div>
                 ))}
               </div>
             )}
@@ -304,21 +305,21 @@ export function PayloadPlayground() {
 
         {/* ── Preview column ────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--hari-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Rendered Output
           </span>
 
           <div style={{
             minHeight: '480px',
-            border: '1.5px solid #e2e8f0',
+            border: '1.5px solid var(--hari-border)',
             borderRadius: '0.5rem',
-            background: 'white',
+            background: 'var(--hari-surface)',
             padding: '1rem',
             overflowY: 'auto',
           }}>
             {!compiled ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '0.5rem', color: '#94a3b8', padding: '2rem' }}>
-                <div style={{ fontSize: '2rem' }}>🧩</div>
+                <div style={{ fontSize: '2rem' }}><Puzzle size={32} /></div>
                 <div style={{ fontSize: '0.8rem', textAlign: 'center' }}>
                   {validation.ok
                     ? 'Could not compile this payload — check the intent type is registered.'
@@ -343,7 +344,7 @@ export function PayloadPlayground() {
       </div>
 
       {/* Schema reference hint */}
-      <div style={{ marginTop: '1rem', fontSize: '0.7rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.75rem' }}>
+      <div style={{ marginTop: '1rem', fontSize: '0.7rem', color: 'var(--hari-text-muted)', borderTop: '1px solid var(--hari-border)', paddingTop: '0.75rem' }}>
         Required top-level fields: <code style={{ background: '#f1f5f9', padding: '0 3px', borderRadius: '2px' }}>version</code>,{' '}
         <code style={{ background: '#f1f5f9', padding: '0 3px', borderRadius: '2px' }}>intentId</code>,{' '}
         <code style={{ background: '#f1f5f9', padding: '0 3px', borderRadius: '2px' }}>type</code>,{' '}

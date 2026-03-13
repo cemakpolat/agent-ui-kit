@@ -7,6 +7,7 @@ import {
 import { IntentRenderer, IntentErrorBoundary } from '@hari/ui';
 import { registry } from '../registry';
 import { v4 as uuid } from 'uuid';
+import { RefreshCw, Code, Download, AlertCircle } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IntentPayloadBuilder  —  FUTURE_TASKS §Developer Experience
@@ -60,7 +61,7 @@ function freshPayload(): BuilderState {
             collapsible: false,
             defaultCollapsed: false,
             blocks: [
-              { type: 'paragraph', content: 'Edit the data field to match your intent type.' },
+              { type: 'paragraph', text: 'Edit the data field to match your intent type.' },
             ],
           },
         ],
@@ -140,10 +141,11 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.4rem 0.625rem',
   borderRadius: '0.375rem',
-  border: '1px solid #e2e8f0',
+  border: '1px solid var(--hari-border)',
   fontSize: '0.8rem',
   fontFamily: 'inherit',
-  backgroundColor: 'white',
+  backgroundColor: 'var(--hari-surface)',
+  color: 'var(--hari-text)',
   boxSizing: 'border-box',
 };
 
@@ -155,7 +157,7 @@ const errorInputStyle: React.CSSProperties = {
 
 function FieldLabel({ label, required }: { label: string; required?: boolean }) {
   return (
-    <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#475569', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+    <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'var(--hari-text-secondary)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
       {label} {required && <span style={{ color: '#dc2626' }}>*</span>}
     </label>
   );
@@ -300,7 +302,7 @@ export function IntentPayloadBuilder() {
                 collapsible: false,
                 defaultCollapsed: false,
                 blocks: [
-                  { type: 'paragraph', content: 'Edit the data field to match your intent type.' },
+                  { type: 'paragraph', text: 'Edit the data field to match your intent type.' },
                 ],
               },
             ],
@@ -365,15 +367,15 @@ export function IntentPayloadBuilder() {
   }, [buildResult]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '1.5rem 2rem' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--hari-bg)', padding: '1.5rem 2rem' }}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#0f172a' }}>
+            <h1 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: 'var(--hari-text)' }}>
               Intent Payload Builder
             </h1>
-            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--hari-text-secondary)' }}>
               Build a valid intent payload field-by-field with live schema validation and preview.
               Use the{' '}
               <em>Payload Playground</em> tab for raw JSON editing.
@@ -382,9 +384,9 @@ export function IntentPayloadBuilder() {
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
               onClick={handleReset}
-              style={{ padding: '0.4rem 0.875rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.78rem', color: '#475569' }}
+              style={{ padding: '0.4rem 0.875rem', borderRadius: '0.375rem', border: '1px solid var(--hari-border)', backgroundColor: 'var(--hari-surface)', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--hari-text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              Reset
+              <RefreshCw size={14} /> Reset
             </button>
             <button
               onClick={() => setExportVisible((v) => !v)}
@@ -398,9 +400,10 @@ export function IntentPayloadBuilder() {
                 cursor: buildResult.ok ? 'pointer' : 'not-allowed',
                 fontSize: '0.78rem',
                 fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: '0.35rem'
               }}
             >
-              {exportVisible ? 'Hide JSON' : 'Export JSON'}
+              {exportVisible ? <><Code size={14} /> Hide JSON</> : <><Download size={14} /> Export JSON</>}
             </button>
           </div>
         </div>
@@ -419,7 +422,7 @@ export function IntentPayloadBuilder() {
       <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '1.5rem', alignItems: 'start' }}>
 
         {/* ── Left: builder form ─────────────────────────────────────────── */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', border: '1px solid #e2e8f0', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ backgroundColor: 'var(--hari-surface)', borderRadius: '0.75rem', border: '1px solid var(--hari-border)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
           {/* Section: Identity */}
           <SectionHeader title="Identity" />
@@ -438,9 +441,9 @@ export function IntentPayloadBuilder() {
               <button
                 onClick={() => setState((prev) => ({ ...prev, intentId: uuid() }))}
                 title="Generate new UUID"
-                style={{ padding: '0.4rem 0.6rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', cursor: 'pointer', fontSize: '0.72rem', whiteSpace: 'nowrap' }}
+                style={{ padding: '0.4rem 0.6rem', borderRadius: '0.375rem', border: '1px solid var(--hari-border)', backgroundColor: 'var(--hari-surface-alt)', cursor: 'pointer', fontSize: '0.72rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
               >
-                ↺ New
+                <RefreshCw size={12} /> New
               </button>
             </div>
             <FieldError msg={fieldErrors['intentId']} />
@@ -520,7 +523,7 @@ export function IntentPayloadBuilder() {
               onChange={set('confidence')}
               style={{ width: '100%' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--hari-text-muted)', marginTop: '0.1rem' }}>
               <span>0% (no confidence)</span>
               <span>100% (certain)</span>
             </div>
@@ -575,11 +578,11 @@ export function IntentPayloadBuilder() {
             }}
           >
             {buildResult.ok ? (
-              <span>✓ Valid payload — preview rendered on the right</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><Code size={14} /> Valid payload — preview rendered on the right</span>
             ) : (
               <div>
-                <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>
-                  ✕ {zodErrors.length} validation error{zodErrors.length !== 1 ? 's' : ''}
+                <div style={{ fontWeight: 700, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <AlertCircle size={14} /> {zodErrors.length} validation error{zodErrors.length !== 1 ? 's' : ''}
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '1rem' }}>
                   {zodErrors.slice(0, 5).map((e, i) => (
@@ -597,18 +600,18 @@ export function IntentPayloadBuilder() {
 
           {/* Header */}
           {compiledView && (
-            <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', padding: '0.875rem 1.25rem', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <div style={{ backgroundColor: 'var(--hari-surface)', borderRadius: '0.75rem', padding: '0.875rem 1.25rem', border: '1px solid var(--hari-border)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--hari-text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {compiledView.domain} / {compiledView.type}
               </div>
-              <h2 style={{ margin: '0.25rem 0 0', fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>
+              <h2 style={{ margin: '0.25rem 0 0', fontSize: '1rem', fontWeight: 700, color: 'var(--hari-text)' }}>
                 {compiledView.primaryGoal}
               </h2>
             </div>
           )}
 
           {/* Rendered output */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', padding: '1.25rem', border: '1px solid #e2e8f0', minHeight: '300px' }}>
+          <div style={{ backgroundColor: 'var(--hari-surface)', borderRadius: '0.75rem', padding: '1.25rem', border: '1px solid var(--hari-border)', minHeight: '300px' }}>
             {compiledView ? (
               <IntentErrorBoundary
                 fallbackData={compiledView.data}
@@ -618,18 +621,18 @@ export function IntentPayloadBuilder() {
                 <IntentRenderer compiledView={compiledView} />
               </IntentErrorBoundary>
             ) : (
-              <div style={{ color: '#94a3b8', textAlign: 'center', padding: '3rem 1rem', fontSize: '0.875rem' }}>
+              <div style={{ color: 'var(--hari-text-muted)', textAlign: 'center', padding: '3rem 1rem', fontSize: '0.875rem' }}>
                 Fix validation errors to see the preview
               </div>
             )}
           </div>
 
           {/* Schema reference */}
-          <div style={{ backgroundColor: 'white', borderRadius: '0.75rem', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-            <div style={{ padding: '0.5rem 1rem', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <div style={{ backgroundColor: 'var(--hari-surface)', borderRadius: '0.75rem', border: '1px solid var(--hari-border)', overflow: 'hidden' }}>
+            <div style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--hari-surface-alt)', borderBottom: '1px solid var(--hari-border)', fontSize: '0.65rem', fontWeight: 700, color: 'var(--hari-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Builder Tips
             </div>
-            <ul style={{ margin: 0, padding: '0.75rem 1rem 0.75rem 1.75rem', fontSize: '0.75rem', color: '#475569', lineHeight: '1.8' }}>
+            <ul style={{ margin: 0, padding: '0.75rem 1rem 0.75rem 1.75rem', fontSize: '0.75rem', color: 'var(--hari-text-secondary)', lineHeight: '1.8' }}>
               <li>Set <strong>type</strong> to one of the known types above for a registered renderer</li>
               <li>The <strong>data</strong> field schema depends on the intent type</li>
               <li><strong>document</strong> data: <code>{'{ title, sections: [{ id, title, blocks }] }'}</code></li>
@@ -652,11 +655,11 @@ function SectionHeader({ title }: { title: string }) {
     <div style={{
       fontSize: '0.65rem',
       fontWeight: 700,
-      color: '#64748b',
+      color: 'var(--hari-text-secondary)',
       textTransform: 'uppercase',
       letterSpacing: '0.08em',
       paddingBottom: '0.375rem',
-      borderBottom: '1px solid #f1f5f9',
+      borderBottom: '1px solid var(--hari-border)',
     }}>
       {title}
     </div>

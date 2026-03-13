@@ -150,12 +150,12 @@ export function makeTravelMutator(): (intent: IntentPayload) => IntentPayload {
   const SEQUENCE: Array<Record<string, FlightPatch>> = [
     // Step 0 → 1
     {
-      f1: { price: 568, confidence: 0.88, note: '⚠ Price rising — 2 seats left at this fare' },
+      f1: { price: 568, confidence: 0.88, note: 'Price rising — 2 seats left at this fare' },
       f3: { price: 489, confidence: 0.71, note: 'Only 3 seats remaining' },
     },
     // Step 1 → 2
     {
-      f1: { price: 589, confidence: 0.85, note: '⚠ Last seat at this fare' },
+      f1: { price: 589, confidence: 0.85, note: 'Last seat at this fare' },
       f2: { price: 579, confidence: 0.90, note: 'Price dropped — limited-time fare' },
       f3: { price: 489, confidence: 0.55, note: 'Sold out — checking alternatives…' },
     },

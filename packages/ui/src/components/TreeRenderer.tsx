@@ -1,5 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { TreeDataSchema, type TreeNode } from '@hari/core';
+import { resolveIcon } from '../utils/icon-resolver';
+import { useTheme } from '../ThemeContext';
+import { useMessages } from '../i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TreeRenderer
@@ -84,6 +87,7 @@ function TreeNodeRow({
   onSelect,
   selectedId,
 }: TreeNodeRowProps) {
+  const { theme } = useTheme();
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isExpanded = expandedIds.has(node.id);
   const isSelected = selectedId === node.id;
@@ -99,6 +103,8 @@ function TreeNodeRow({
 
   const isHighlighted = searchQuery && node.label.toLowerCase().includes(searchQuery.toLowerCase());
 
+  const ResolvedIcon = node.icon ? resolveIcon(node.icon, theme.id) : null;
+
   return (
     <>
       <div
@@ -113,14 +119,14 @@ function TreeNodeRow({
           paddingRight: '0.5rem',
           paddingTop: '0.25rem',
           paddingBottom: '0.25rem',
-          borderRadius: '0.375rem',
+          borderRadius: theme.radius.md,
           cursor: canExpand ? 'pointer' : 'default',
           background: isSelected
-            ? '#eff6ff'
+            ? theme.colors.accentSubtle
             : isHighlighted
-            ? '#fef9c3'
+            ? theme.colors.warningSubtle
             : 'transparent',
-          border: isSelected ? '1px solid #93c5fd' : '1px solid transparent',
+          border: isSelected ? `1px solid ${theme.colors.borderFocus}` : '1px solid transparent',
           userSelect: 'none',
         }}
         onClick={() => {
@@ -129,7 +135,7 @@ function TreeNodeRow({
         }}
       >
         {/* Expand/collapse toggle */}
-        <span style={{ width: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.7rem', flexShrink: 0 }}>
+        <span style={{ width: '1rem', textAlign: 'center', color: theme.colors.textMuted, fontSize: '0.7rem', flexShrink: 0 }}>
           {canExpand
             ? isExpanded ? '▾' : '▸'
             : isLeaf || atMaxDepth
@@ -155,7 +161,9 @@ function TreeNodeRow({
 
         {/* Icon */}
         {node.icon && (
-          <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>{node.icon}</span>
+          <span style={{ fontSize: '0.85rem', flexShrink: 0, display: 'inline-flex', alignItems: 'center', color: theme.colors.accent }}>
+            {ResolvedIcon ? <ResolvedIcon size={14} /> : node.icon}
+          </span>
         )}
 
         {/* Label */}
@@ -163,7 +171,7 @@ function TreeNodeRow({
           style={{
             fontSize: density === 'executive' ? '0.8rem' : '0.875rem',
             fontWeight: depth === 0 ? 600 : 400,
-            color: node.color ?? '#111827',
+            color: node.color ?? theme.colors.text,
             flex: 1,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -184,8 +192,8 @@ function TreeNodeRow({
           <span style={{
             fontSize: '0.65rem',
             fontWeight: 600,
-            background: node.color ? node.color + '22' : '#e5e7eb',
-            color: node.color ?? '#374151',
+            background: node.color ? node.color + '22' : theme.colors.surfaceAlt,
+            color: node.color ?? theme.colors.textSecondary,
             borderRadius: '99px',
             padding: '0 0.4rem',
             flexShrink: 0,
@@ -196,7 +204,7 @@ function TreeNodeRow({
 
         {/* Descendant count badge (executive only, when collapsed) */}
         {density === 'executive' && hasChildren && !isExpanded && descendantCount > 0 && (
-          <span style={{ fontSize: '0.6rem', color: '#9ca3af', flexShrink: 0 }}>
+          <span style={{ fontSize: '0.6rem', color: theme.colors.textMuted, flexShrink: 0 }}>
             ({descendantCount})
           </span>
         )}
@@ -207,7 +215,7 @@ function TreeNodeRow({
             onClick={(e) => { e.stopPropagation(); onExplain?.(node.explainElementId!); }}
             aria-label={`Explain: ${node.label}`}
             title="Explain"
-            style={{ fontSize: '0.65rem', background: 'none', border: '1px solid #d1d5db', borderRadius: '3px', padding: '0 4px', cursor: 'pointer', color: '#6b7280', flexShrink: 0 }}
+            style={{ fontSize: '0.65rem', background: 'none', border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm, padding: '0 4px', cursor: 'pointer', color: theme.colors.textSecondary, flexShrink: 0 }}
           >
             ?
           </button>
@@ -224,7 +232,7 @@ function TreeNodeRow({
           gap: '0.3rem',
         }}>
           {Object.entries(node.metadata).map(([k, v]) => (
-            <span key={k} style={{ fontSize: '0.7rem', background: '#f1f5f9', color: '#475569', borderRadius: '3px', padding: '1px 6px' }}>
+            <span key={k} style={{ fontSize: '0.7rem', background: theme.colors.surfaceAlt, color: theme.colors.textSecondary, borderRadius: theme.radius.sm, padding: '1px 6px' }}>
               {k}: {String(v)}
             </span>
           ))}
@@ -237,7 +245,7 @@ function TreeNodeRow({
           paddingLeft: `${indentPx + 36}px`,
           paddingBottom: '0.25rem',
           fontSize: '0.75rem',
-          color: '#6b7280',
+          color: theme.colors.textSecondary,
         }}>
           {node.description}
         </div>
@@ -299,6 +307,8 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
   const [expandedIds, setExpandedIds] = useState<Set<string>>(initialExpanded);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const { theme } = useTheme();
+  const m = useMessages();
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -330,8 +340,8 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
 
   if (!parsed) {
     return (
-      <div style={{ padding: '1rem', color: '#ef4444', fontSize: '0.875rem' }}>
-        Invalid tree data.
+      <div style={{ padding: '1rem', color: theme.colors.danger, fontSize: '0.875rem' }}>
+        {m.treeInvalidData}
       </div>
     );
   }
@@ -341,32 +351,32 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
   const totalNodes = nodes.reduce((a, n) => a + 1 + countDescendants(n), 0);
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: '100%' }}>
+    <div style={{ fontFamily: theme.typography.family, maxWidth: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.625rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         {title && (
-          <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#111827', margin: 0 }}>{title}</h2>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: theme.colors.text, margin: 0 }}>{title}</h2>
         )}
         <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', marginLeft: 'auto' }}>
           {density !== 'executive' && (
             <>
               <button
                 onClick={expandAll}
-                aria-label="Expand all nodes"
-                style={{ fontSize: '0.7rem', background: 'none', border: '1px solid #d1d5db', borderRadius: '3px', padding: '2px 8px', cursor: 'pointer', color: '#374151' }}
+                aria-label={m.treeExpandAll}
+                style={{ fontSize: '0.7rem', background: 'none', border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm, padding: '2px 8px', cursor: 'pointer', color: theme.colors.text }}
               >
-                Expand all
+                {m.treeExpandAll}
               </button>
               <button
                 onClick={collapseAll}
-                aria-label="Collapse all nodes"
-                style={{ fontSize: '0.7rem', background: 'none', border: '1px solid #d1d5db', borderRadius: '3px', padding: '2px 8px', cursor: 'pointer', color: '#374151' }}
+                aria-label={m.treeCollapseAll}
+                style={{ fontSize: '0.7rem', background: 'none', border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm, padding: '2px 8px', cursor: 'pointer', color: theme.colors.text }}
               >
-                Collapse all
+                {m.treeCollapseAll}
               </button>
             </>
           )}
-          <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{totalNodes} nodes</span>
+          <span style={{ fontSize: '0.7rem', color: theme.colors.textMuted }}>{m.treeDescendants(totalNodes)}</span>
         </div>
       </div>
 
@@ -375,16 +385,16 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
         <div style={{ marginBottom: '0.625rem' }}>
           <input
             type="search"
-            placeholder="Filter nodes…"
+            placeholder={m.treeSearch}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search tree nodes"
+            aria-label={m.treeSearch}
             style={{
               width: '100%',
               padding: '0.35rem 0.6rem',
               fontSize: '0.8rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '0.375rem',
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.radius.md,
               outline: 'none',
               boxSizing: 'border-box',
             }}
@@ -394,11 +404,11 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
 
       {/* Breadcrumb (expert density, when node selected) */}
       {density === 'expert' && breadcrumb && breadcrumb.length > 1 && (
-        <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.15rem', alignItems: 'center' }}>
+        <div style={{ fontSize: '0.7rem', color: theme.colors.textMuted, marginBottom: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.15rem', alignItems: 'center' }}>
           {breadcrumb.map((seg, i) => (
             <React.Fragment key={i}>
               {i > 0 && <span>/</span>}
-              <span style={{ color: i === breadcrumb.length - 1 ? '#374151' : '#9ca3af' }}>{seg}</span>
+              <span style={{ color: i === breadcrumb.length - 1 ? theme.colors.text : theme.colors.textMuted }}>{seg}</span>
             </React.Fragment>
           ))}
         </div>
@@ -409,10 +419,10 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
         role="tree"
         aria-label={title ?? 'Tree'}
         style={{
-          border: '1px solid #e5e7eb',
-          borderRadius: '0.5rem',
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.radius.lg,
           padding: '0.375rem',
-          background: '#fafafa',
+          background: theme.colors.surfaceAlt,
           position: 'relative',
         }}
       >
@@ -424,7 +434,7 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
             top: '0.75rem',
             bottom: '0.75rem',
             width: '1px',
-            background: '#e5e7eb',
+            background: theme.colors.border,
             pointerEvents: 'none',
           }} />
         )}
@@ -446,8 +456,8 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
         ))}
 
         {nodes.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#9ca3af', padding: '1.5rem', fontSize: '0.875rem' }}>
-            No nodes to display.
+          <div style={{ textAlign: 'center', color: theme.colors.textMuted, padding: '1.5rem', fontSize: '0.875rem' }}>
+            {m.treeNoResults}
           </div>
         )}
       </div>
@@ -456,7 +466,7 @@ export function TreeRenderer({ data, density = 'operator', onExplain }: TreeRend
       {density === 'expert' && (
         <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           {Object.entries(STATUS_COLORS).map(([status, color]) => (
-            <span key={status} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', color: '#6b7280' }}>
+            <span key={status} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', color: theme.colors.textSecondary }}>
               <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: color, display: 'inline-block' }} />
               {status}
             </span>

@@ -23,7 +23,46 @@ export const TimelineEventStatusSchema = z.enum([
 
 export type TimelineEventStatus = z.infer<typeof TimelineEventStatusSchema>;
 
-export const TimelineEventSchema = z.object({
+/**
+ * Normalise a raw LLM-generated event object so common field-name variants
+ * are mapped to the canonical schema fields before Zod validates the shape.
+ *
+ * Mappings applied (only when the canonical field is absent/empty):
+ *   title     ← name | label | event | heading | summary
+ *   timestamp ← date | year | datetime | time | startDate | start
+ *               A bare 4-digit year string/number is expanded to ISO 8601.
+ *   id        ← auto-derived from title slug or random string
+ */
+function normaliseTimelineEvent(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  const obj = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...obj };
+
+  // ── title ────────────────────────────────────────────────────────────────
+  if (!out.title) {
+    const alias = out.name ?? out.label ?? out.event ?? out.heading ?? out.summary;
+    if (alias !== undefined) out.title = alias;
+  }
+
+  // ── timestamp ────────────────────────────────────────────────────────────
+  if (!out.timestamp) {
+    const candidate = out.date ?? out.datetime ?? out.time ?? out.startDate ?? out.start ?? out.year;
+    if (typeof candidate === 'number') {
+      out.timestamp = `${candidate}-01-01T00:00:00Z`;
+    } else if (typeof candidate === 'string' && /^\d{4}$/.test(candidate.trim())) {
+      out.timestamp = `${candidate.trim()}-01-01T00:00:00Z`;
+    } else if (candidate !== undefined) {
+      out.timestamp = candidate;
+    }
+  }
+
+
+  return out;
+}
+
+export const TimelineEventSchema = z.preprocess(
+  normaliseTimelineEvent,
+  z.object({
   /** Unique event identifier */
   id: z.string(),
   /** Short title displayed prominently */
@@ -47,7 +86,7 @@ export const TimelineEventSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
   /** Links to an explainability entry in the parent IntentPayload */
   explainElementId: z.string().optional(),
-});
+}));
 
 export type TimelineEvent = z.infer<typeof TimelineEventSchema>;
 

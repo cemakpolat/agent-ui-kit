@@ -1,6 +1,6 @@
 {
   "name": "@hari/demo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
   "description": "HARI demo — Travel comparison + CloudOps incident response scenarios",
@@ -15,6 +15,7 @@
     "@hari/core": "workspace:*",
     "@hari/ui": "workspace:*",
     "esbuild": "^0.27.3",
+    "lucide-react": "^0.575.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "uuid": "^13.0.0"

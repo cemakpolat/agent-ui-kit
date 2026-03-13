@@ -16,6 +16,7 @@ import {
   TreeRenderer,
   ChatRenderer,
   DiagramRenderer,
+  MapRenderer,
   CollaborativeDocumentEditor,
   type FlightOption,
   type MetricData,
@@ -27,6 +28,7 @@ import {
   type TreeRendererProps,
   type ChatRendererProps,
   type DiagramRendererProps,
+  type MapRendererProps,
 } from '@hari/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,13 +44,37 @@ export const registry = new ComponentRegistryManager();
 // ── Travel / comparison ───────────────────────────────────────────────────────
 
 interface FlightListProps {
-  flights: FlightOption[];
+  flights?: FlightOption[];
   density: 'executive' | 'operator' | 'expert';
   onExplain?: (id: string) => void;
+  // Search criteria when flights array is not yet available
+  fromCity?: string;
+  toCity?: string;
+  departureDate?: string;
+  returnDate?: string;
 }
 
-function FlightListExecutive({ flights, onExplain }: FlightListProps) {
+function FlightListExecutive({ flights, onExplain, fromCity, toCity, departureDate, returnDate }: FlightListProps) {
   const [selected, setSelected] = React.useState<string | null>(null);
+  
+  if (!flights || flights.length === 0) {
+    return (
+      <div style={{ padding: '1rem', border: '1px dashed #ccc', borderRadius: '0.5rem', backgroundColor: '#f9f9f9' }}>
+        <div style={{ fontSize: '0.875rem', color: '#666' }}>
+          {fromCity || toCity ? (
+            <div>
+              <div>📍 {fromCity} → {toCity}</div>
+              {departureDate && <div>📅 {departureDate}{returnDate ? ` to ${returnDate}` : ''}</div>}
+              <div style={{ marginTop: '0.5rem', color: '#999' }}>Searching for flights...</div>
+            </div>
+          ) : (
+            <div>No flight options available yet.</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
       {flights.map((f) => (
@@ -64,8 +90,27 @@ function FlightListExecutive({ flights, onExplain }: FlightListProps) {
   );
 }
 
-function FlightListOperator({ flights, onExplain }: FlightListProps) {
+function FlightListOperator({ flights, onExplain, fromCity, toCity, departureDate, returnDate }: FlightListProps) {
   const [selected, setSelected] = React.useState<string | null>(null);
+  
+  if (!flights || flights.length === 0) {
+    return (
+      <div style={{ padding: '1rem', border: '1px dashed #ccc', borderRadius: '0.5rem', backgroundColor: '#f9f9f9' }}>
+        <div style={{ fontSize: '0.875rem', color: '#666' }}>
+          {fromCity || toCity ? (
+            <div>
+              <div>📍 {fromCity} → {toCity}</div>
+              {departureDate && <div>📅 {departureDate}{returnDate ? ` to ${returnDate}` : ''}</div>}
+              <div style={{ marginTop: '0.5rem', color: '#999' }}>Searching for flights...</div>
+            </div>
+          ) : (
+            <div>No flight options available yet.</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       {flights.map((f) => (
@@ -81,8 +126,27 @@ function FlightListOperator({ flights, onExplain }: FlightListProps) {
   );
 }
 
-function FlightListExpert({ flights, onExplain }: FlightListProps) {
+function FlightListExpert({ flights, onExplain, fromCity, toCity, departureDate, returnDate }: FlightListProps) {
   const [selected, setSelected] = React.useState<string | null>(null);
+  
+  if (!flights || flights.length === 0) {
+    return (
+      <div style={{ padding: '1rem', border: '1px dashed #ccc', borderRadius: '0.5rem', backgroundColor: '#f9f9f9' }}>
+        <div style={{ fontSize: '0.875rem', color: '#666' }}>
+          {fromCity || toCity ? (
+            <div>
+              <div>📍 {fromCity} → {toCity}</div>
+              {departureDate && <div>📅 {departureDate}{returnDate ? ` to ${returnDate}` : ''}</div>}
+              <div style={{ marginTop: '0.5rem', color: '#999' }}>Searching for flights...</div>
+            </div>
+          ) : (
+            <div>No flight options available yet.</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       {flights.map((f) => (
@@ -580,6 +644,55 @@ registry.register(GENERIC_DOMAIN, 'diagram', {
   default: () => DiagramWrapper,
 });
 
+// ── Map intent type ───────────────────────────────────────────────────────────
+// Geographic / spatial data with markers, polygons, polylines, circles, heatmaps.
+// IntentRenderer spreads compiledView.data as props; MapWrapper reconstructs
+// them into the `data` object that MapRenderer expects.
+
+interface MapWrapperProps extends Omit<MapRendererProps, 'data'> {
+  title?: unknown;
+  description?: unknown;
+  center?: unknown;
+  zoom?: unknown;
+  tileProvider?: unknown;
+  layers?: unknown;
+  markers?: unknown;
+  polygons?: unknown;
+  polylines?: unknown;
+  circles?: unknown;
+  heatmap?: unknown;
+  showLegend?: unknown;
+  executiveCap?: unknown;
+  density: 'executive' | 'operator' | 'expert';
+  onExplain?: (id: string) => void;
+}
+
+function MapWrapper({
+  title, description, center, zoom, tileProvider, layers,
+  markers, polygons, polylines, circles, heatmap, showLegend, executiveCap,
+  density, onExplain,
+}: MapWrapperProps) {
+  return (
+    <MapRenderer
+      data={{ title, description, center, zoom, tileProvider, layers, markers, polygons, polylines, circles, heatmap, showLegend, executiveCap }}
+      density={density}
+      onExplain={onExplain}
+    />
+  );
+}
+
+registry.register('logistics', 'map', {
+  executive: () => MapWrapper,
+  operator:  () => MapWrapper,
+  expert:    () => MapWrapper,
+  default:   () => MapWrapper,
+});
+
+// Also register under generic domain so any intent with type 'map' works
+registry.register(GENERIC_DOMAIN, 'map', {
+  default: () => MapWrapper,
+});
+
 // ── Generic fallback (already handled by IntentRenderer, but here for doc purposes) ──
 
 registry.register(GENERIC_DOMAIN, FALLBACK_INTENT, {
@@ -711,3 +824,36 @@ function CollabDocumentWrapper({ title = 'Collaborative Document', sections = []
 registry.register('collab', 'document', {
   default: () => CollabDocumentWrapper,
 });
+
+// ── Generic fallbacks for ALL well-known intent types ─────────────────────────
+// Ensures any domain sending a well-known type gets a reasonable default view
+// instead of raw JSON, even without domain-specific registration.
+
+// Generic comparison → renders data as-is (cards layout through FallbackView)
+// No HARI-standard schema for comparison data — it's domain-specific
+// (flights, products, vendors, etc.), so FallbackView auto-generates.
+
+// Generic document — works for any domain emitting type='document'
+registry.register(GENERIC_DOMAIN, 'document', {
+  default: () => DocumentWrapper,
+});
+
+// Generic form — works for any domain emitting type='form'
+registry.register(GENERIC_DOMAIN, 'form', {
+  default: () => FormWrapper,
+});
+
+// Generic diagnostic_overview — domain-specific data, but the fallback will
+// auto-generate a readable table/card view. Explicit registration ensures
+// the type is recognized even without a renderer match.
+registry.register(GENERIC_DOMAIN, 'diagnostic_overview', {
+  default: () => MetricGrid,
+});
+
+// Generic sensor_overview
+registry.register(GENERIC_DOMAIN, 'sensor_overview', {
+  default: () => SensorGrid,
+});
+
+// Generic comparison — uses FallbackView auto-rendering (no universal comparison component)
+// IntentRenderer's smart FallbackView handles this gracefully.

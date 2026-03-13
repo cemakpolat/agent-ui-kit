@@ -1,4 +1,18 @@
 import React from 'react';
+import {
+  Thermometer,
+  Droplets,
+  Wind,
+  CloudFog,
+  Activity,
+  Zap,
+  ArrowUp,
+  ArrowDown,
+  ArrowRight,
+  MapPin,
+  Battery,
+  BatteryWarning,
+} from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SensorCard — density-aware IoT domain component
@@ -36,16 +50,16 @@ const STATUS = {
   offline:  { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0', dot: '#94a3b8' },
 };
 
-const TYPE_ICON: Record<SensorReading['type'], string> = {
-  temperature: '🌡',
-  humidity:    '💧',
-  pressure:    '🌬',
-  co2:         '🫁',
-  motion:      '🏃',
-  power:       '⚡',
+const TYPE_ICON: Record<SensorReading['type'], React.ElementType> = {
+  temperature: Thermometer,
+  humidity:    Droplets,
+  pressure:    Wind,
+  co2:         CloudFog,
+  motion:      Activity,
+  power:       Zap,
 };
 
-const TREND_ICON: Record<string, string> = { rising: '↑', falling: '↓', stable: '→' };
+const TREND_ICON: Record<string, React.ElementType> = { rising: ArrowUp, falling: ArrowDown, stable: ArrowRight };
 
 interface Props {
   sensor: SensorReading;
@@ -54,8 +68,10 @@ interface Props {
 }
 
 export function SensorCard({ sensor, density = 'operator', onExplain }: Props) {
-  const s = STATUS[sensor.status];
+  const s = STATUS[sensor.status] ?? STATUS.ok; // guard against unexpected status values
   const isCompact = density === 'executive';
+  const Icon = TYPE_ICON[sensor.type] ?? Activity; // Activity as generic fallback for unknown types
+  const TrendIcon = sensor.trend ? (TREND_ICON[sensor.trend] ?? null) : null;
 
   return (
     <div
@@ -88,8 +104,9 @@ export function SensorCard({ sensor, density = 'operator', onExplain }: Props) {
       {/* Status dot + name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: isCompact ? '0.25rem' : '0.375rem' }}>
         <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: s.dot, display: 'inline-block', flexShrink: 0 }} />
-        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          {TYPE_ICON[sensor.type]} {sensor.name}
+        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          <Icon size={14} />
+          {sensor.name}
         </span>
       </div>
 
@@ -99,9 +116,9 @@ export function SensorCard({ sensor, density = 'operator', onExplain }: Props) {
           {sensor.status === 'offline' ? '—' : sensor.value}
         </span>
         <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{sensor.unit}</span>
-        {sensor.trend && !isCompact && (
-          <span style={{ fontSize: '0.875rem', color: sensor.trend === 'rising' ? '#dc2626' : sensor.trend === 'falling' ? '#16a34a' : '#94a3b8', marginLeft: '0.25rem', fontWeight: 600 }}>
-            {TREND_ICON[sensor.trend]}
+        {sensor.trend && !isCompact && TrendIcon && (
+          <span style={{ fontSize: '0.875rem', color: sensor.trend === 'rising' ? '#dc2626' : sensor.trend === 'falling' ? '#16a34a' : '#94a3b8', marginLeft: '0.25rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>
+            <TrendIcon size={16} />
           </span>
         )}
       </div>
@@ -113,10 +130,12 @@ export function SensorCard({ sensor, density = 'operator', onExplain }: Props) {
             <ThresholdBar value={sensor.value} threshold={sensor.threshold} status={sensor.status} />
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.375rem', fontSize: '0.7rem', color: '#94a3b8' }}>
-            <span>📍 {sensor.location}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={12} /> {sensor.location}</span>
             <span>{timeAgo(sensor.lastSeen)}</span>
             {sensor.battery != null && (
-              <span>{sensor.battery > 20 ? '🔋' : '🪫'} {sensor.battery}%</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                {sensor.battery > 20 ? <Battery size={12} /> : <BatteryWarning size={12} />} {sensor.battery}%
+              </span>
             )}
           </div>
         </div>
@@ -172,7 +191,11 @@ function ThresholdBar({ value, threshold, status }: { value: number; threshold: 
 }
 
 function timeAgo(iso: string): string {
-  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (!iso) return 'unknown';
+  const ts = new Date(iso).getTime();
+  if (isNaN(ts)) return 'unknown';
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 0) return 'just now';
   if (sec < 60) return `${sec}s ago`;
   if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
   return `${Math.floor(sec / 3600)}h ago`;

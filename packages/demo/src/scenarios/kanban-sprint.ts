@@ -82,7 +82,7 @@ export const kanbanSprintIntent: IntentPayloadInput = {
               jira: 'GW-441',
               incident: 'INC-0412',
               canary_pct: '10%',
-              canary_health: '✓ 0 errors / 17 min',
+              canary_health: '0 errors / 17 min',
             },
             explainElementId: 'gw-441-explain',
           },

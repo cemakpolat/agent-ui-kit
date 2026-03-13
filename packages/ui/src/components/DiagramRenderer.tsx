@@ -1,5 +1,8 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import mermaid from 'mermaid';
 import { DiagramDataSchema } from '@hari/core';
+import { resolveIcon } from '../utils/icon-resolver';
+import { useTheme } from '../ThemeContext';
 import type {
   DiagramPayload,
   MermaidDiagram,
@@ -57,59 +60,176 @@ function paletteColor(index: number): string {
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 
-const CARD_STYLE: React.CSSProperties = {
-  background: '#fff',
-  border: '1px solid #e2e8f0',
-  borderRadius: '0.75rem',
-  padding: '1.25rem',
-  marginBottom: '1rem',
-};
+function useCardStyle(): React.CSSProperties {
+  const { theme } = useTheme();
+  return {
+    background: theme.colors.surface,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.radius.lg,
+    padding: '1.25rem',
+    marginBottom: '1rem',
+  };
+}
 
-const TITLE_STYLE: React.CSSProperties = {
-  fontSize: '0.95rem',
-  fontWeight: 600,
-  color: '#1e293b',
-  marginBottom: '0.75rem',
-};
+function useTitleStyle(): React.CSSProperties {
+  const { theme } = useTheme();
+  return {
+    fontSize: '0.95rem',
+    fontWeight: 600,
+    color: theme.colors.text,
+    marginBottom: '0.75rem',
+  };
+}
 
-const CAPTION_STYLE: React.CSSProperties = {
-  fontSize: '0.78rem',
-  color: '#64748b',
-  marginTop: '0.5rem',
-  fontStyle: 'italic',
-  textAlign: 'center',
-};
+function useCaptionStyle(): React.CSSProperties {
+  const { theme } = useTheme();
+  return {
+    fontSize: '0.78rem',
+    color: theme.colors.textSecondary,
+    marginTop: '0.5rem',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mermaid renderer
 // ─────────────────────────────────────────────────────────────────────────────
 
-function useMermaidLoad(): 'idle' | 'loading' | 'ready' | 'error' {
-  const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  const triedRef = useRef(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((window as any).mermaid) { setState('ready'); return; }
-    if (triedRef.current) return;
-    triedRef.current = true;
-    setState('loading');
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-    script.async = true;
-    script.onload = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
-      setState('ready');
-    };
-    script.onerror = () => setState('error');
-    document.head.appendChild(script);
-  }, []);
-
-  return state;
+/** Detect dark mode from the theme background colour luminance. */
+function isDarkBackground(hex: string): boolean {
+  const c = hex.replace('#', '');
+  if (c.length < 6) return false;
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  // Relative luminance (sRGB)
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return lum < 0.4;
 }
 
+let _mermaidInitTheme: string | null = null;
 let _mermaidRenderCount = 0;
+
+// ── Mermaid markup sanitizer ──────────────────────────────────────────────────
+/**
+ * Fix common LLM-generated Mermaid syntax errors:
+ *
+ *   Phase 1 — Normalise ALL single-quoted label brackets to double-quoted:
+ *             ['label'] → ["label"],  ('label') → ("label"),  {'label'} → {"label"}
+ *
+ *   Phase 2 — Remove invalid extra label suffix appended after a closing bracket:
+ *             NodeId("rounded")["extra"] → NodeId("rounded")
+ *             (Mermaid only supports one label notation per node.)
+ *
+ *   Phase 3 — Deduplicate reused single-word node IDs (LLMs often emit a
+ *             generic ID like "Database" for multiple distinct nodes).
+ *             Each occurrence is renamed to a unique camelCase ID derived from
+ *             its label text: Database("Product DB") → ProductDB("Product DB").
+ *
+ *   Phase 4 — Collect multi-word node IDs from declaration lines.
+ *             "Order Service["  →  phraseMap: "Order Service" → "OrderService"
+ *
+ *   Phase 5 — Collect multi-word phrases used bare in edge lines.
+ *             "Order Service --> Message Queue"  →  adds both phrases.
+ *
+ *   Phase 6 — Replace all collected multi-word phrases (longest first) with
+ *             their camelCase equivalents everywhere in the markup.
+ */
+function sanitizeMermaidMarkup(raw: string): string {
+  // ── Phase 1: normalise single-quoted labels ──────────────────────────────
+  let result = raw
+    .replace(/\['/g, '["').replace(/'\]/g, '"]')
+    .replace(/\('/g, '("').replace(/'\)/g, '")')
+    .replace(/\{'/g, '{"').replace(/'\}/g, '"}');
+
+  // ── Phase 2: strip extra label suffix ────────────────────────────────────
+  // e.g. NodeId("rounded")["extra"]  →  NodeId("rounded")
+  result = result.replace(/([)\]}])\s*\["[^"]*"\]/g, '$1');
+
+  // ── Phase 3: deduplicate reused single-word node IDs ─────────────────────
+  {
+    const lines = result.split('\n');
+    const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Match:  optional-indent  singleWordId  opening-bracket  "label"
+    // Groups: 1=indent, 2=nodeId, 3=label-text
+    const singleDeclRe = /^([ \t]*)([A-Za-z][A-Za-z0-9_]*)(?:\(|\[(?!\[)|\{)"([^"]*)"/;
+
+    // Collect all single-word declarations keyed by their ID
+    const byId = new Map<string, Array<{ lineIdx: number; label: string }>>();
+    for (let i = 0; i < lines.length; i++) {
+      const m = singleDeclRe.exec(lines[i]);
+      if (!m) continue;
+      const id = m[2];
+      const label = m[3];
+      const prev = byId.get(id) ?? [];
+      prev.push({ lineIdx: i, label });
+      byId.set(id, prev);
+    }
+
+    // Rename every occurrence of IDs that appear more than once
+    for (const [oldId, uses] of byId) {
+      if (uses.length < 2) continue;
+      for (const [idx, { lineIdx, label }] of uses.entries()) {
+        // Derive a unique ID from the label; fall back to oldId + ordinal
+        const newId = label.trim().length > 0
+          ? label.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')
+          : `${oldId}${idx + 1}`;
+        lines[lineIdx] = lines[lineIdx].replace(
+          new RegExp(`^([ \\t]*)${escRe(oldId)}(?=[([{])`),
+          `$1${newId}`,
+        );
+      }
+    }
+
+    result = lines.join('\n');
+  }
+
+  // ── Phase 4: collect multi-word node IDs from declaration lines ───────────
+  const phraseMap = new Map<string, string>();
+  // Declarations that still use multi-word IDs before any bracket/paren/brace:
+  //   "  Order Service["  /  "  Payment Gateway("  /  "  Message Queue{"
+  const declRe = /^[ \t]*([A-Za-z][A-Za-z0-9]*(?: [A-Za-z][A-Za-z0-9]*)+)\s*[(\[{]/gm;
+  let m: RegExpExecArray | null;
+  while ((m = declRe.exec(result)) !== null) {
+    const phrase = m[1].trim();
+    if (!phraseMap.has(phrase)) {
+      phraseMap.set(phrase, phrase.replace(/ ([A-Za-z])/g, (_, c: string) => c.toUpperCase()));
+    }
+  }
+
+  // ── Phase 5: collect multi-word phrases from edge lines ───────────────────
+  for (const line of result.split('\n')) {
+    const arrowIdx = line.search(/--[>.\-]+/);
+    if (arrowIdx === -1) continue;
+    const left = line.slice(0, arrowIdx).trim();
+    const afterArrow = line.slice(arrowIdx).replace(/^--[>.\-]+(\|[^|]*\|)?\s*/, '').trim();
+    const right = afterArrow.split(/\s*--[>.\-]+/)[0].trim();
+    for (const candidate of [left, right]) {
+      if (candidate.includes(' ') && /^[A-Za-z]/.test(candidate) && !phraseMap.has(candidate)) {
+        phraseMap.set(candidate, candidate.replace(/ ([A-Za-z])/g, (_, c: string) => c.toUpperCase()));
+      }
+    }
+  }
+
+  if (phraseMap.size === 0) return result;
+
+  // ── Phase 6: replace multi-word phrases longest-first ────────────────────
+  const sorted = [...phraseMap.entries()].sort((a, b) => b[0].length - a[0].length);
+  for (const [phrase, id] of sorted) {
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // In node declarations: "Phrase[" / "Phrase(" / "Phrase{" → "id[" etc.
+    result = result.replace(new RegExp(`${escaped}\\s*([([{])`, 'gm'), `${id}$1`);
+    // Bare phrase in edge lines (not inside a label, not adjacent to a bracket)
+    result = result.replace(
+      new RegExp(`(?<![\\w"])${escaped.replace(/ /g, '\\s+')}(?![\\w"\\[({])`, 'gm'),
+      id,
+    );
+  }
+
+  return result;
+}
 
 function MermaidBlock({
   diagram,
@@ -118,93 +238,321 @@ function MermaidBlock({
   diagram: MermaidDiagram;
   density: 'executive' | 'operator' | 'expert';
 }) {
-  const loadState = useMermaidLoad();
+  const { theme } = useTheme();
+  const cardStyle = useCardStyle();
+  const titleStyle = useTitleStyle();
+  const captionStyle = useCaptionStyle();
+  const svgWrapRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showRaw, setShowRaw] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
-  const idRef = useRef(`mermaid-${++_mermaidRenderCount}`);
+  const [isRendering, setIsRendering] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
+  const idRef = useRef(`mermaid-blk-${++_mermaidRenderCount}`);
+
+  const isDark = isDarkBackground(theme.colors.background);
+  const mermaidTheme = isDark ? 'dark' : 'default';
+
+  /** Theme variables passed to mermaid to ensure text/node colours are always
+   *  legible regardless of whether a custom CSS theme targets the SVG. */
+  const themeVariables = isDark
+    ? {
+        background:          theme.colors.surface,
+        mainBkg:             theme.colors.surfaceAlt,
+        nodeBorder:          theme.colors.border,
+        clusterBkg:          theme.colors.surfaceAlt,
+        titleColor:          theme.colors.text,
+        edgeLabelBackground: theme.colors.surfaceAlt,
+        lineColor:           theme.colors.textSecondary,
+        primaryColor:        '#4f46e5',
+        primaryTextColor:    theme.colors.text,
+        primaryBorderColor:  theme.colors.accent,
+        secondaryColor:      theme.colors.surface,
+        tertiaryColor:       theme.colors.surfaceAlt,
+        labelTextColor:      theme.colors.text,
+        nodeTextColor:       theme.colors.text,
+        textColor:           theme.colors.text,
+        fontSize:            '14px',
+      }
+    : {
+        background:          theme.colors.surface,
+        mainBkg:             '#eff6ff',
+        nodeBorder:          '#6366f1',
+        clusterBkg:          theme.colors.surfaceAlt,
+        titleColor:          theme.colors.text,
+        edgeLabelBackground: theme.colors.surfaceAlt,
+        lineColor:           theme.colors.textSecondary,
+        primaryColor:        '#eff6ff',
+        primaryTextColor:    '#1e293b',
+        primaryBorderColor:  '#6366f1',
+        labelTextColor:      '#1e293b',
+        nodeTextColor:       '#1e293b',
+        textColor:           '#1e293b',
+        fontSize:            '14px',
+      };
 
   useEffect(() => {
-    if (loadState !== 'ready' || !containerRef.current) return;
+    // Re-initialise when the theme flavour flips (dark ↔ light).
+    if (_mermaidInitTheme !== mermaidTheme) {
+      _mermaidInitTheme = mermaidTheme;
+      mermaid.initialize({
+        startOnLoad:   false,
+        theme:         mermaidTheme,
+        themeVariables,
+        securityLevel: 'loose',
+        fontFamily:    theme.typography.family,
+      });
+    }
+
+    setIsRendering(true);
     setRenderError(null);
-    const id = idRef.current;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mermaid = (window as any).mermaid;
+
+    // Sanitise markup before handing it to mermaid (fixes common LLM errors)
+    const safeMarkup = sanitizeMermaidMarkup(diagram.markup);
+
     mermaid
-      .render(id, diagram.markup)
-      .then(({ svg }: { svg: string }) => {
-        if (containerRef.current) {
-          containerRef.current.innerHTML = svg;
+      .render(idRef.current, safeMarkup)
+      .then(({ svg }) => {
+        if (svgWrapRef.current) {
+          svgWrapRef.current.innerHTML = svg;
+          const svgEl = svgWrapRef.current.querySelector('svg');
+          if (svgEl) {
+            // Responsive sizing
+            svgEl.style.maxWidth = '100%';
+            svgEl.style.height   = 'auto';
+            svgEl.style.display  = 'block';
+            // Let the renderer container control the background so that
+            // both light and dark themes get the correct look. Mermaid's
+            // default theme inlines a white background on the SVG root;
+            // we override it to transparent so the theme surfaceAlt shows.
+            svgEl.style.background = 'transparent';
+            // Ensure body text inside the SVG inherits a visible colour.
+            // Mermaid injects inline fill/stroke styles; we reinforce them
+            // with a <style> block scoped to this SVG.
+            const textColor = theme.colors.text;
+            const existingStyle = svgEl.querySelector('style');
+            const colorOverride = `
+              .node text, .label text, .edgeLabel text,
+              .actor text, .messageText, .loopText,
+              text { fill: ${textColor} !important; color: ${textColor} !important; }
+            `;
+            if (existingStyle) {
+              existingStyle.textContent += colorOverride;
+            } else {
+              const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+              styleEl.textContent = colorOverride;
+              svgEl.insertBefore(styleEl, svgEl.firstChild);
+            }
+          }
         }
+        setIsRendering(false);
       })
       .catch((err: unknown) => {
-        setRenderError(String(err));
+        setRenderError(String(err).replace(/^Error:\s*/i, ''));
+        setIsRendering(false);
       });
-  }, [loadState, diagram.markup]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diagram.markup, mermaidTheme]);
+
+  // Reset zoom/pan whenever the diagram changes
+  useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, [diagram.markup]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((z) => Math.min(4, Math.max(0.25, z - e.deltaY * 0.001)));
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+  }, [pan]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !dragStart.current) return;
+    setPan({
+      x: dragStart.current.px + (e.clientX - dragStart.current.mx),
+      y: dragStart.current.py + (e.clientY - dragStart.current.my),
+    });
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => { setIsDragging(false); dragStart.current = null; }, []);
+
+  const downloadSvg = useCallback(() => {
+    if (!svgWrapRef.current) return;
+    const svg = svgWrapRef.current.querySelector('svg');
+    if (!svg) return;
+    const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${diagram.title ?? 'diagram'}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [diagram.title]);
+
+  const copyMarkup = useCallback(() => {
+    navigator.clipboard.writeText(diagram.markup).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [diagram.markup]);
+
+  const btnBase: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.3rem',
+    fontSize: '0.72rem',
+    fontWeight: 500,
+    padding: '0.25rem 0.6rem',
+    borderRadius: theme.radius.sm,
+    border: `1px solid ${theme.colors.border}`,
+    background: theme.colors.surface,
+    color: theme.colors.text,
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+  };
 
   return (
-    <div style={CARD_STYLE}>
-      {diagram.title && <div style={TITLE_STYLE}>{diagram.title}</div>}
+    <div style={cardStyle}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {diagram.title
+          ? <div style={titleStyle}>{diagram.title}</div>
+          : <div />}
 
-      {/* Loading / error state */}
-      {loadState === 'loading' && (
-        <div style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-          Loading diagram renderer…
+        {/* Toolbar */}
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Zoom controls */}
+          {!showRaw && !renderError && (
+            <>
+              <button style={btnBase} onClick={() => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} title="Zoom in">＋</button>
+              <span style={{ fontSize: '0.72rem', color: theme.colors.textSecondary, minWidth: '3rem', textAlign: 'center' }}>
+                {Math.round(zoom * 100)}%
+              </span>
+              <button style={btnBase} onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Zoom out">－</button>
+              <button style={btnBase} onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} title="Reset view">⌂</button>
+            </>
+          )}
+
+          {/* Download SVG — only when diagram rendered */}
+          {!showRaw && !renderError && !isRendering && (
+            <button style={btnBase} onClick={downloadSvg} title="Download SVG">
+              ↓ SVG
+            </button>
+          )}
+
+          {/* Copy markup */}
+          <button style={{ ...btnBase, color: copied ? theme.colors.success : theme.colors.text }} onClick={copyMarkup} title="Copy source">
+            {copied ? '✓ Copied' : '⧉ Source'}
+          </button>
+
+          {/* Toggle raw */}
+          {!renderError && (
+            <button
+              style={{ ...btnBase, background: showRaw ? theme.colors.accentSubtle : theme.colors.surface, color: showRaw ? theme.colors.accent : theme.colors.text }}
+              onClick={() => setShowRaw((v) => !v)}
+              title={showRaw ? 'Show diagram' : 'Show source'}
+            >
+              {showRaw ? '⬡ Diagram' : '</> Raw'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Loading skeleton */}
+      {isRendering && !renderError && (
+        <div style={{
+          height: '180px',
+          borderRadius: theme.radius.md,
+          background: `linear-gradient(90deg, ${theme.colors.surfaceAlt} 25%, ${theme.colors.border} 50%, ${theme.colors.surfaceAlt} 75%)`,
+          backgroundSize: '200% 100%',
+          animation: 'hari-shimmer 1.4s infinite',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: theme.colors.textMuted,
+          fontSize: '0.82rem',
+        }}>
+          <style>{`@keyframes hari-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+          Rendering diagram…
         </div>
       )}
-      {(loadState === 'error' || renderError) && (
-        <div style={{ color: '#dc2626', fontSize: '0.82rem', marginBottom: '0.5rem' }}>
-          {renderError ?? 'Failed to load mermaid renderer. Showing raw markup.'}
+
+      {/* Error banner */}
+      {renderError && (
+        <div style={{
+          background: theme.colors.dangerSubtle,
+          border: `1px solid ${theme.colors.danger}`,
+          borderRadius: theme.radius.md,
+          padding: '0.75rem 1rem',
+          marginBottom: '0.5rem',
+        }}>
+          <div style={{ color: theme.colors.dangerText, fontWeight: 600, fontSize: '0.82rem', marginBottom: '0.25rem' }}>Render error</div>
+          <pre style={{ color: theme.colors.dangerText, fontSize: '0.78rem', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: theme.typography.familyMono }}>
+            {renderError}
+          </pre>
         </div>
       )}
 
-      {/* Rendered mermaid diagram */}
-      {loadState === 'ready' && !renderError && !showRaw && (
+      {/* Rendered mermaid diagram with zoom/pan */}
+      {!showRaw && !renderError && (
         <div
           ref={containerRef}
-          style={{ overflowX: 'auto', borderRadius: '0.5rem', background: '#f8fafc', padding: '1rem' }}
-        />
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          style={{
+            overflow: 'hidden',
+            borderRadius: theme.radius.md,
+            background: theme.colors.surfaceAlt,
+            padding: '1.25rem',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            minHeight: '120px',
+            position: 'relative',
+            display: isRendering ? 'none' : 'block',
+          }}
+        >
+          <div
+            ref={svgWrapRef}
+            style={{
+              transformOrigin: 'top left',
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transition: isDragging ? 'none' : 'transform 0.15s ease',
+            }}
+          />
+        </div>
       )}
 
-      {/* Raw markup (expert density or forced) */}
-      {(showRaw || loadState === 'error' || renderError) && (
+      {/* Raw markup */}
+      {(showRaw || renderError) && (
         <pre
           style={{
-            background: '#1e293b',
-            color: '#e2e8f0',
-            borderRadius: '0.5rem',
+            background: theme.colors.text,
+            color: theme.colors.surface,
+            borderRadius: theme.radius.md,
             padding: '1rem',
             fontSize: '0.8rem',
+            fontFamily: theme.typography.familyMono,
             overflowX: 'auto',
             lineHeight: 1.6,
             margin: 0,
+            whiteSpace: 'pre',
           }}
         >
           {diagram.markup}
         </pre>
       )}
 
-      {/* Expert density toggle */}
-      {density === 'expert' && loadState === 'ready' && !renderError && (
-        <button
-          onClick={() => setShowRaw((v) => !v)}
-          style={{
-            marginTop: '0.5rem',
-            fontSize: '0.75rem',
-            color: '#6366f1',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            textDecoration: 'underline',
-          }}
-        >
-          {showRaw ? 'Show diagram' : 'Show markup'}
-        </button>
-      )}
-
       {diagram.caption && density !== 'executive' && (
-        <div style={CAPTION_STYLE}>{diagram.caption}</div>
+        <div style={captionStyle}>{diagram.caption}</div>
       )}
     </div>
   );
@@ -300,6 +648,10 @@ function GraphBlock({
   groupColorMap: Map<string, string>;
   onExplain?: (id: string) => void;
 }) {
+  const { theme } = useTheme();
+  const cardStyle = useCardStyle();
+  const titleStyle = useTitleStyle();
+  const captionStyle = useCaptionStyle();
   const W = 560;
   const H = density === 'executive' ? 260 : 380;
   const positions = useMemo(
@@ -323,14 +675,17 @@ function GraphBlock({
   const MARKER_ID = `arrow-${diagram.id ?? 'graph'}`;
 
   return (
-    <div style={CARD_STYLE}>
-      {diagram.title && <div style={TITLE_STYLE}>{diagram.title}</div>}
+    <div style={cardStyle}>
+      {diagram.title && <div style={titleStyle}>{diagram.title}</div>}
       <div style={{ overflowX: 'auto' }}>
         <svg
+          role="img"
+          aria-label={diagram.title ?? 'Graph diagram'}
           width="100%"
           viewBox={`0 0 ${W} ${H}`}
           style={{ display: 'block', maxWidth: W }}
         >
+          <title>{diagram.title ?? 'Graph diagram'}</title>
           <defs>
             <marker id={MARKER_ID} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
@@ -390,6 +745,8 @@ function GraphBlock({
             const color = nodeColor(nd);
             const isHov = hovered === nd.id;
             const r = 22;
+            const ResolvedIcon = nd.icon ? resolveIcon(nd.icon, theme.id) : null;
+
             return (
               <g
                 key={nd.id}
@@ -409,14 +766,26 @@ function GraphBlock({
                   strokeWidth={isHov ? 2.5 : 1.5}
                   style={{ transition: 'all 0.15s' }}
                 />
+
+                {/* Render Icon: Lucide if resolved, otherwise text fallback */}
                 {nd.icon ? (
-                  <text textAnchor="middle" dominantBaseline="central" fontSize="14" style={{ userSelect: 'none' }}>
-                    {nd.icon}
-                  </text>
+                  ResolvedIcon ? (
+                     <foreignObject x={-8} y={-8} width={16} height={16} style={{ overflow: 'visible' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', color: color }}>
+                         <ResolvedIcon size={16} strokeWidth={2.5} />
+                       </div>
+                     </foreignObject>
+                   ) : (
+                    <text textAnchor="middle" dominantBaseline="central" fontSize="14" style={{ userSelect: 'none' }}>
+                      {nd.icon}
+                    </text>
+                   )
                 ) : null}
+
                 <text
-                  textAnchor="middle"
+                  x={0}
                   y={r + 13}
+                  textAnchor="middle"
                   fontSize="10"
                   fill="#1e293b"
                   style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -426,7 +795,7 @@ function GraphBlock({
 
                 {/* Expert: metadata tooltip on hover */}
                 {density === 'expert' && isHov && nd.metadata && (
-                  <g transform={`translate(${r + 5}, ${-r})`}>
+                  <g transform={`translate(${r + 5}, ${-r})`} style={{ pointerEvents: 'none' }}>
                     <rect
                       x={0} y={0}
                       width={140} height={Object.keys(nd.metadata).length * 16 + 8}
@@ -444,6 +813,7 @@ function GraphBlock({
           })}
         </svg>
       </div>
+
 
       {/* Group legend */}
       {density !== 'executive' && groupColorMap.size > 0 && (
@@ -464,7 +834,7 @@ function GraphBlock({
       )}
 
       {diagram.caption && density !== 'executive' && (
-        <div style={CAPTION_STYLE}>{diagram.caption}</div>
+        <div style={captionStyle}>{diagram.caption}</div>
       )}
     </div>
   );
@@ -513,7 +883,8 @@ function BarChart({
   );
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+    <svg role="img" aria-label={diagram.title ?? 'Bar chart'} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+      <title>{diagram.title ?? 'Bar chart'}</title>
       <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
         {/* Y-axis ticks */}
         {tickValues.map((tv, i) => (
@@ -604,7 +975,8 @@ function LineAreaChart({
   );
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+    <svg role="img" aria-label={diagram.title ?? 'Line chart'} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+      <title>{diagram.title ?? 'Line chart'}</title>
       <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
         {/* Grid */}
         {tickVals.map((tv, i) => (
@@ -716,7 +1088,8 @@ function PieChart({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ display: 'block', flexShrink: 0 }}>
+      <svg role="img" aria-label={diagram.title ?? 'Pie chart'} width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ display: 'block', flexShrink: 0 }}>
+        <title>{diagram.title ?? 'Pie chart'}</title>
         {series.values.map((v, i) =>
           slice(v, colors[i] ?? paletteColor(i), diagram.labels[i] ?? `#${i + 1}`, i),
         )}
@@ -746,10 +1119,14 @@ function ChartBlock({
   density: 'executive' | 'operator' | 'expert';
 }) {
   const colors = useMemo(() => resolveColors(diagram.series), [diagram.series]);
+  const cardStyle = useCardStyle();
+  const titleStyle = useTitleStyle();
+  const captionStyle = useCaptionStyle();
+  const { theme } = useTheme();
 
   return (
-    <div style={CARD_STYLE}>
-      {diagram.title && <div style={TITLE_STYLE}>{diagram.title}</div>}
+    <div style={cardStyle}>
+      {diagram.title && <div style={titleStyle}>{diagram.title}</div>}
       <div style={{ overflowX: 'auto' }}>
         {diagram.chartType === 'bar' && (
           <BarChart diagram={diagram} colors={colors} density={density} />
@@ -778,7 +1155,7 @@ function ChartBlock({
       )}
 
       {diagram.caption && density !== 'executive' && (
-        <div style={CAPTION_STYLE}>{diagram.caption}</div>
+        <div style={captionStyle}>{diagram.caption}</div>
       )}
     </div>
   );

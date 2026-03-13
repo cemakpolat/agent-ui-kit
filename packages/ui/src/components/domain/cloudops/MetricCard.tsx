@@ -1,4 +1,5 @@
 import React from 'react';
+import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MetricCard — density-aware CloudOps domain component
@@ -27,16 +28,21 @@ export interface MetricData {
   percentileRank?: number;
 }
 
-const STATUS = {
+const STATUS: Record<string, { bg: string; text: string; border: string; chip: string }> = {
   normal:   { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0', chip: '#dcfce7' },
+  ok:       { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0', chip: '#dcfce7' }, // LLM alias
   warning:  { bg: '#fefce8', text: '#a16207', border: '#fde68a', chip: '#fef9c3' },
   critical: { bg: '#fef2f2', text: '#dc2626', border: '#fecaca', chip: '#fee2e2' },
+  error:    { bg: '#fef2f2', text: '#dc2626', border: '#fecaca', chip: '#fee2e2' }, // LLM alias
 };
 
-const TREND_LABEL = {
-  up:     { icon: '↑', color: '#dc2626' },
-  down:   { icon: '↓', color: '#16a34a' },
-  stable: { icon: '→', color: '#64748b' },
+const TREND_LABEL: Record<string, { Icon: LucideIcon; color: string }> = {
+  up:      { Icon: TrendingUp,   color: '#dc2626' },
+  down:    { Icon: TrendingDown, color: '#16a34a' },
+  stable:  { Icon: Minus,        color: '#64748b' },
+  // LLM aliases
+  flat:    { Icon: Minus,        color: '#64748b' },
+  neutral: { Icon: Minus,        color: '#64748b' },
 };
 
 interface Props {
@@ -46,7 +52,7 @@ interface Props {
 }
 
 export function MetricCard({ metric, density = 'operator', onExplain }: Props) {
-  const s = STATUS[metric.status ?? 'normal'];
+  const s = STATUS[metric.status ?? 'normal'] ?? STATUS['normal'];
   const isCompact = density === 'executive';
 
   return (
@@ -119,16 +125,19 @@ export function MetricCard({ metric, density = 'operator', onExplain }: Props) {
       </div>
 
       {/* Trend (operator + expert) */}
-      {metric.trend && !isCompact && (
+      {metric.trend && !isCompact && TREND_LABEL[metric.trend] && (
         <div
           style={{
             fontSize: '0.8rem',
-            color: TREND_LABEL[metric.trend].color,
+            color: TREND_LABEL[metric.trend]!.color,
             marginTop: '0.25rem',
             fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.25rem',
           }}
         >
-          {TREND_LABEL[metric.trend].icon} {metric.trend}
+          {React.createElement(TREND_LABEL[metric.trend]!.Icon, { size: 14 })} {metric.trend}
         </div>
       )}
 

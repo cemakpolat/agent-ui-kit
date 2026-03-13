@@ -146,13 +146,13 @@ describe('SensorCard', () => {
   });
 
   it('renders trend arrow in operator density', () => {
-    render(<SensorCard sensor={SENSOR} density="operator" />);
-    expect(screen.getByText('↑')).toBeDefined();
+    const { container } = render(<SensorCard sensor={SENSOR} density="operator" />);
+    expect(container.querySelector('.lucide-arrow-up')).not.toBeNull();
   });
 
   it('hides trend arrow in executive density', () => {
-    render(<SensorCard sensor={SENSOR} density="executive" />);
-    expect(screen.queryByText('↑')).toBeNull();
+    const { container } = render(<SensorCard sensor={SENSOR} density="executive" />);
+    expect(container.querySelector('.lucide-arrow-up')).toBeNull();
   });
 
   it('renders location in operator density', () => {

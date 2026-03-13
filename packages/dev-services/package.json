@@ -1,6 +1,6 @@
 {
   "name": "@hari/dev-services",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Development backend services for HARI (WebSocket, SSE, MCP)",
   "type": "module",
   "main": "dist/index.js",
@@ -12,6 +12,14 @@
     "./agent": {
       "import": "./dist/agent.js",
       "types": "./dist/agent.d.ts"
+    },
+    "./audit-db": {
+      "import": "./dist/audit-db.js",
+      "types": "./dist/audit-db.d.ts"
+    },
+    "./governance-server": {
+      "import": "./dist/governance-server.js",
+      "types": "./dist/governance-server.d.ts"
     }
   },
   "scripts": {
@@ -19,9 +27,11 @@
     "dev:ws": "tsx src/ws-server.ts",
     "dev:sse": "tsx src/sse-server.ts",
     "dev:mcp": "tsx src/mcp-server.ts",
+    "dev:governance": "tsx src/governance-server.ts",
     "start:ws": "node dist/ws-server.js",
     "start:sse": "node dist/sse-server.js",
-    "start:mcp": "node dist/mcp-server.js"
+    "start:mcp": "node dist/mcp-server.js",
+    "start:governance": "node dist/governance-server.js"
   },
   "dependencies": {
     "@hari/core": "workspace:*",

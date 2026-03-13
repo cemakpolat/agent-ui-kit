@@ -8,7 +8,8 @@
 //   - Chart: executive density shows one diagram only
 //   - Chart: multi-series legend shown in non-executive densities
 //   - Chart: pie legend hidden in executive density
-//   - Mermaid: fallback raw markup shown when CDN script load fails
+//   - Mermaid: rendering skeleton shown while mermaid.render() is pending
+//   - Mermaid: error state + raw markup shown when mermaid.render() fails
 //   - Invalid data: error banner instead of crash
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ describe('DiagramRenderer — Graph', () => {
 
   it('renders the graph diagram title', () => {
     render(<DiagramRenderer data={GRAPH_DATA} />);
-    expect(screen.getByText('Network')).toBeDefined();
+    expect(screen.getAllByText('Network').length).toBeGreaterThan(0);
   });
 
   it('renders node labels in SVG text elements', () => {
@@ -190,7 +191,7 @@ describe('DiagramRenderer — Bar Chart', () => {
 
   it('renders the chart title', () => {
     render(<DiagramRenderer data={BAR_CHART_DATA} />);
-    expect(screen.getByText('Monthly Revenue')).toBeDefined();
+    expect(screen.getAllByText('Monthly Revenue').length).toBeGreaterThan(0);
   });
 
   it('renders caption in operator density', () => {
@@ -228,7 +229,7 @@ describe('DiagramRenderer — Line Chart', () => {
 
   it('renders chart title', () => {
     render(<DiagramRenderer data={LINE_CHART_DATA} />);
-    expect(screen.getByText('Trend')).toBeDefined();
+    expect(screen.getAllByText('Trend').length).toBeGreaterThan(0);
   });
 });
 
@@ -240,7 +241,7 @@ describe('DiagramRenderer — Area Chart', () => {
 
   it('renders chart title', () => {
     render(<DiagramRenderer data={AREA_CHART_DATA} />);
-    expect(screen.getByText('Bandwidth Usage')).toBeDefined();
+    expect(screen.getAllByText('Bandwidth Usage').length).toBeGreaterThan(0);
   });
 });
 
@@ -252,7 +253,7 @@ describe('DiagramRenderer — Pie Chart', () => {
 
   it('renders chart title', () => {
     render(<DiagramRenderer data={PIE_CHART_DATA} />);
-    expect(screen.getByText('Market Share')).toBeDefined();
+    expect(screen.getAllByText('Market Share').length).toBeGreaterThan(0);
   });
 
   it('renders pie segment legend in operator density', () => {
@@ -287,13 +288,13 @@ describe('DiagramRenderer — executive density limit', () => {
 
   it('shows both charts in operator density', () => {
     render(<DiagramRenderer data={TWO_CHARTS} density="operator" />);
-    expect(screen.getByText('First Chart')).toBeDefined();
-    expect(screen.getByText('Second Chart')).toBeDefined();
+    expect(screen.getAllByText('First Chart').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Second Chart').length).toBeGreaterThan(0);
   });
 
   it('shows only the first chart in executive density', () => {
     render(<DiagramRenderer data={TWO_CHARTS} density="executive" />);
-    expect(screen.getByText('First Chart')).toBeDefined();
+    expect(screen.getAllByText('First Chart').length).toBeGreaterThan(0);
     expect(screen.queryByText('Second Chart')).toBeNull();
   });
 });
@@ -303,56 +304,50 @@ describe('DiagramRenderer — executive density limit', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('DiagramRenderer — Mermaid fallback', () => {
-  beforeEach(() => {
-    // Ensure no mermaid global is set
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (window as any).mermaid;
-  });
-
   it('renders the mermaid diagram title', () => {
     render(<DiagramRenderer data={MERMAID_DATA} />);
     expect(screen.getByText('Flow')).toBeDefined();
   });
 
-  it('shows raw markup as fallback when CDN script fails to load', async () => {
-    // Intercept the script element creation so we can fire onerror manually.
-    let capturedScript: HTMLScriptElement | null = null;
-    vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
-      if ((node as HTMLElement).tagName === 'SCRIPT') {
-        capturedScript = node as HTMLScriptElement;
-      }
-      return node;
-    });
+  it('shows rendering skeleton while mermaid.render() is pending', async () => {
+    // Mock mermaid to return a promise that never resolves → stays in "isRendering" state
+    const mermaidModule = await import('mermaid');
+    const spy = vi.spyOn(mermaidModule.default, 'render').mockReturnValue(
+      new Promise(() => {/* never resolves */})
+    );
+
+    render(<DiagramRenderer data={MERMAID_DATA} />);
+
+    // isRendering=true → "Rendering diagram…" skeleton is shown
+    expect(screen.getByText('Rendering diagram…')).toBeDefined();
+
+    spy.mockRestore();
+  });
+
+  it('shows error state and raw markup when mermaid.render() fails', async () => {
+    // Mock mermaid to reject so the component transitions to renderError state
+    const mermaidModule = await import('mermaid');
+    const spy = vi.spyOn(mermaidModule.default, 'render').mockRejectedValue(
+      new Error('Parse error on line 1')
+    );
 
     const { container } = render(<DiagramRenderer data={MERMAID_DATA} />);
 
-    // After render + effects, the loading indicator should be visible.
-    expect(screen.getByText('Loading diagram renderer…')).toBeDefined();
-    expect(capturedScript).not.toBeNull();
-
-    // Fire the onerror handler inside act() so React processes setState('error').
+    // Wait for the rejected promise to propagate and renderError to be set
     await act(async () => {
-      capturedScript!.onerror!(new Event('error'));
+      await new Promise((r) => setTimeout(r, 0));
     });
+    await waitFor(() => expect(screen.getByText('Render error')).toBeDefined());
 
-    // loadState is now 'error' → error banner + raw markup <pre> are visible.
-    expect(screen.getByText(/Failed to load mermaid renderer/i)).toBeDefined();
-    // Use container.querySelector because getByText normalises multi-line
-    // whitespace in <pre> elements in a way that can miss the match.
-    const pre = container.querySelector('pre');
-    expect(pre).not.toBeNull();
-    expect(pre!.textContent).toContain('flowchart LR');
-    expect(pre!.textContent).toContain('A --> B');
+    // The error banner contains a <pre> with the error message.
+    // A second <pre> shows the raw diagram markup (rendered when renderError is set).
+    const pres = container.querySelectorAll('pre');
+    expect(pres.length).toBeGreaterThanOrEqual(2);
+    const markupPre = pres[pres.length - 1]; // last pre = raw markup
+    expect(markupPre.textContent).toContain('flowchart LR');
+    expect(markupPre.textContent).toContain('A --> B');
 
-    vi.restoreAllMocks();
-  });
-
-  it('shows loading state while CDN script is loading', () => {
-    // Patch appendChild to never call onload/onerror → stays "loading"
-    vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => node);
-    render(<DiagramRenderer data={MERMAID_DATA} />);
-    expect(screen.getByText(/Loading diagram renderer/i)).toBeDefined();
-    vi.restoreAllMocks();
+    spy.mockRestore();
   });
 });
 

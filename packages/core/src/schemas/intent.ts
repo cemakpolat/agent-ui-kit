@@ -16,6 +16,46 @@ import { ExplainabilityContextSchema } from './explainability';
 // (cheap) or a full new intent (expensive but sometimes necessary).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Well-known Intent Types ──────────────────────────────────────────────────
+//
+// These are the canonical intent types that HARI ships renderers for.
+// Agents SHOULD use one of these when possible. Custom string types are
+// still accepted but will produce a compiler warning and fall back to
+// auto-generated views unless a renderer is explicitly registered.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const WELL_KNOWN_INTENT_TYPES = [
+  'comparison',
+  'diagnostic_overview',
+  'sensor_overview',
+  'document',
+  'form',
+  'chat',
+  'diagram',
+  'timeline',
+  'workflow',
+  'kanban',
+  'calendar',
+  'tree',
+  'map',
+] as const;
+
+export const WellKnownIntentTypeSchema = z.enum(WELL_KNOWN_INTENT_TYPES);
+export type WellKnownIntentType = z.infer<typeof WellKnownIntentTypeSchema>;
+
+/**
+ * Intent type schema — accepts well-known types AND arbitrary strings.
+ * Well-known types get IDE autocomplete; custom types still work but trigger
+ * a compiler warning if no renderer is registered.
+ */
+export const IntentTypeSchema = z.string();
+export type IntentType = string;
+
+/** Check whether a type string is a well-known intent type */
+export function isWellKnownIntentType(type: string): type is WellKnownIntentType {
+  return (WELL_KNOWN_INTENT_TYPES as readonly string[]).includes(type);
+}
+
 export const DensityModeSchema = z.enum(['executive', 'operator', 'expert']);
 export type DensityMode = z.infer<typeof DensityModeSchema>;
 
@@ -45,10 +85,11 @@ export const IntentPayloadSchema = z.object({
   intentId: z.string().uuid(),
   /**
    * Semantic intent type used by the compiler to select components.
-   * Well-known types: 'comparison', 'dashboard', 'form',
-   * 'diagnostic_overview', 'incident_response', 'document'
+   * Well-known types: comparison, diagnostic_overview, sensor_overview,
+   * document, form, chat, diagram, timeline, workflow, kanban, calendar, tree.
+   * Custom strings are accepted but will trigger compiler warnings.
    */
-  type: z.string(),
+  type: IntentTypeSchema,
   /** Domain — used for component registry lookup */
   domain: z.string(),
   primaryGoal: z.string(),

@@ -102,11 +102,62 @@ export const ExecutiveDensity: Story = {
   },
 };
 
+
 export const WithSearch: Story = {
   args: {
     data: SIMPLE_DOC,
     showConfidence: true,
     density: 'operator',
     showSearch: true,
+  },
+};
+
+export const WithPDFAndExcel: Story = {
+  args: {
+    data: DocumentDataSchema.parse({
+      title: 'Report with Media & Data',
+      sections: [
+        {
+          id: 's1',
+          title: 'document Overview',
+          collapsible: false,
+          defaultCollapsed: false,
+          blocks: [
+            { type: 'paragraph', text: 'This document includes a PDF report and an Excel spreadsheet for detailed analysis.' },
+            {
+              type: 'pdf',
+              url: 'https://www.w3.org/WAI/WCAG21/Techniques/pdf/img/table.pdf',
+              title: 'Sample Annual Report (PDF)',
+              height: '600px',
+              showControls: true,
+              downloadable: true,
+            },
+          ],
+        },
+        {
+          id: 's2',
+          title: 'Sales Data',
+          collapsible: false,
+          defaultCollapsed: false,
+          blocks: [
+            { type: 'paragraph', text: 'Interactive spreadsheet with filtering and sorting capabilities.' },
+            {
+              type: 'excel',
+              csvData: `Product,Q1,Q2,Q3,Q4,Total
+Widget Pro,120000,135000,142000,158000,555000
+Widget Lite,65000,70000,72000,80000,287000
+Widget Max,89000,102000,115000,132000,438000
+Widget Enterprise,45000,52000,61000,75000,233000`,
+              title: 'Sales by Quarter',
+              height: '400px',
+              showControls: true,
+              downloadable: false,
+            },
+          ],
+        },
+      ],
+    }),
+    showConfidence: true,
+    density: 'operator',
   },
 };

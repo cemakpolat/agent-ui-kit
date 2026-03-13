@@ -90,6 +90,106 @@ interface ExplainOpenedEvent {
   elementId: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 8.3 — Governance Observability Events
+//
+// These events power the GovernanceMetrics aggregator and ultimately feed
+// Grafana-compatible dashboards for decision latency analysis and authority
+// mode transition heatmaps.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Human authority mode changed (emitted on every transition). */
+interface AuthorityModeChangedEvent {
+  type: 'governance:authority_changed';
+  /** Viewer/session identifier */
+  holderId: string;
+  fromMode: string;
+  toMode: string;
+  /** Escalation direction: 'up' | 'down' */
+  direction: 'up' | 'down';
+  reason: string;
+  /** Governance domain context (e.g. 'deployment', 'finance') */
+  domain?: string;
+  timestamp: string;
+}
+
+/** A governed action was presented to a human for review. */
+interface GovernedActionPresentedEvent {
+  type: 'governance:action_presented';
+  actionId: string;
+  requiredAuthority: string;
+  reversibility: string;
+  preconditionCount: number;
+  metPreconditions: number;
+  domain?: string;
+  timestamp: string;
+}
+
+/** A governed action was approved by a human. */
+interface GovernedActionApprovedEvent {
+  type: 'governance:action_approved';
+  actionId: string;
+  approverId: string;
+  approverAuthority: string;
+  /** Time from presentation to approval (ms) — decision latency */
+  deliberationMs: number;
+  domain?: string;
+  timestamp: string;
+}
+
+/** A governed action was rejected by a human. */
+interface GovernedActionRejectedEvent {
+  type: 'governance:action_rejected';
+  actionId: string;
+  rejectorId: string;
+  reason: string;
+  /** Time from presentation to rejection (ms) */
+  deliberationMs: number;
+  domain?: string;
+  timestamp: string;
+}
+
+/** A precondition was waived (requires override authority). */
+interface PreconditionWaivedEvent {
+  type: 'governance:precondition_waived';
+  actionId: string;
+  preconditionDescription: string;
+  waivedBy: string;
+  waiverAuthority: string;
+  justification?: string;
+  timestamp: string;
+}
+
+/** A governance marketplace item was imported (pattern, template, or hierarchy). */
+interface MarketplaceItemImportedEvent {
+  type: 'governance:marketplace_imported';
+  itemType: 'pattern' | 'template' | 'hierarchy';
+  itemId: string;
+  itemName: string;
+  timestamp: string;
+}
+
+/** AI suggested preconditions for an action. */
+interface AIGovernanceSuggestionEvent {
+  type: 'governance:ai_suggestion';
+  actionDescription: string;
+  suggestedCount: number;
+  acceptedCount: number;
+  /** Which AI provider was used (e.g. 'ollama/llama3.2') */
+  provider: string;
+  latencyMs: number;
+  timestamp: string;
+}
+
+/** AI generated a justification summary for a governance decision. */
+interface AIJustificationGeneratedEvent {
+  type: 'governance:ai_justification';
+  decisionId: string;
+  provider: string;
+  latencyMs: number;
+  timestamp: string;
+}
+
 export type TelemetryEvent =
   | BridgeConnectedEvent
   | BridgeDisconnectedEvent
@@ -101,6 +201,15 @@ export type TelemetryEvent =
   | ActionExecutedEvent
   | ActionConfirmedEvent
   | ActionCancelledEvent
-  | ExplainOpenedEvent;
+  | ExplainOpenedEvent
+  // Phase 8.3 — Governance events
+  | AuthorityModeChangedEvent
+  | GovernedActionPresentedEvent
+  | GovernedActionApprovedEvent
+  | GovernedActionRejectedEvent
+  | PreconditionWaivedEvent
+  | MarketplaceItemImportedEvent
+  | AIGovernanceSuggestionEvent
+  | AIJustificationGeneratedEvent;
 
 export type TelemetryEventType = TelemetryEvent['type'];

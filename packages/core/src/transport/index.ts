@@ -33,3 +33,11 @@ export type { RawPayload, AdaptResult } from './adapter';
 
 export { MCPAgentBridge } from './mcp';
 export type { MCPTransportOptions } from './mcp';
+
+// Phase 5.1: Governance Agent Bridge
+export { GovernanceAgentBridge } from './governance-bridge';
+export type {
+  GovernanceBridgeOptions,
+  GovernanceBridgeEvents,
+  GovernanceCheckResult,
+} from './governance-bridge';

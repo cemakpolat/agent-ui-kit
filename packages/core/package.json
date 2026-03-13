@@ -1,8 +1,8 @@
 {
   "name": "@hari/core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "HARI core: intent schemas, intent compiler, and state stores",
+  "description": "HARI core: perception schemas, governance contracts, intent compiler, and state stores",
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

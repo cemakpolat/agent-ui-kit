@@ -66,20 +66,20 @@ export const diagramArchitectureIntent: IntentPayloadInput = {
         caption: 'Layout: frontend clients → gateway → core services → data layer. Hover in expert density to see metadata.',
         nodes: [
           // Frontend
-          { id: 'web',      label: 'Web App',      group: 'frontend',  shape: 'circle', icon: '🌐', metadata: { version: 'v3.2.1', team: 'frontend' } },
-          { id: 'mobile',   label: 'Mobile',        group: 'frontend',  shape: 'circle', icon: '📱', metadata: { version: 'v2.1.0', team: 'frontend' } },
+          { id: 'web',      label: 'Web App',      group: 'frontend',  shape: 'circle', icon: 'web', metadata: { version: 'v3.2.1', team: 'frontend' } },
+          { id: 'mobile',   label: 'Mobile',        group: 'frontend',  shape: 'circle', icon: 'mobile', metadata: { version: 'v2.1.0', team: 'frontend' } },
           // Gateway
-          { id: 'gw',       label: 'API Gateway',   group: 'gateway',   shape: 'diamond', icon: '🔀', metadata: { rps: '12 000', p99: '8 ms' } },
-          { id: 'auth',     label: 'Auth',           group: 'gateway',   shape: 'circle', icon: '🔐', metadata: { provider: 'JWT/OAuth2' } },
+          { id: 'gw',       label: 'API Gateway',   group: 'gateway',   shape: 'diamond', icon: 'gateway', metadata: { rps: '12 000', p99: '8 ms' } },
+          { id: 'auth',     label: 'Auth',           group: 'gateway',   shape: 'circle', icon: 'auth', metadata: { provider: 'JWT/OAuth2' } },
           // Core services
-          { id: 'users',    label: 'Users',          group: 'core',      shape: 'circle', icon: '👤', metadata: { slo: '99.9%' } },
-          { id: 'orders',   label: 'Orders',         group: 'core',      shape: 'circle', icon: '📦', metadata: { slo: '99.95%' } },
-          { id: 'payments', label: 'Payments',       group: 'core',      shape: 'circle', icon: '💳', metadata: { pci: 'compliant', slo: '99.99%' } },
-          { id: 'notify',   label: 'Notifications',  group: 'core',      shape: 'circle', icon: '🔔', metadata: { channels: 'email, push, sms' } },
+          { id: 'users',    label: 'Users',          group: 'core',      shape: 'circle', icon: 'user', metadata: { slo: '99.9%' } },
+          { id: 'orders',   label: 'Orders',         group: 'core',      shape: 'circle', icon: 'orders', metadata: { slo: '99.95%' } },
+          { id: 'payments', label: 'Payments',       group: 'core',      shape: 'circle', icon: 'payments', metadata: { pci: 'compliant', slo: '99.99%' } },
+          { id: 'notify',   label: 'Notifications',  group: 'core',      shape: 'circle', icon: 'notifications', metadata: { channels: 'email, push, sms' } },
           // Data
-          { id: 'pg',       label: 'PostgreSQL',     group: 'data',      shape: 'square', icon: '🗄', metadata: { version: '15', replicas: '2' } },
-          { id: 'redis',    label: 'Redis',           group: 'data',      shape: 'square', icon: '⚡', metadata: { mode: 'cluster', memory: '32 GB' } },
-          { id: 'mq',       label: 'RabbitMQ',       group: 'data',      shape: 'hexagon', icon: '🐇', metadata: { queues: '14', consumers: '8' } },
+          { id: 'pg',       label: 'PostgreSQL',     group: 'data',      shape: 'square', icon: 'db', metadata: { version: '15', replicas: '2' } },
+          { id: 'redis',    label: 'Redis',           group: 'data',      shape: 'square', icon: 'redis', metadata: { mode: 'cluster', memory: '32 GB' } },
+          { id: 'mq',       label: 'RabbitMQ',       group: 'data',      shape: 'hexagon', icon: 'queue', metadata: { queues: '14', consumers: '8' } },
         ],
         edges: [
           { source: 'web',      target: 'gw',       directed: true,  style: 'solid',  weight: 2 },

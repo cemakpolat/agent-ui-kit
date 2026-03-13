@@ -17,8 +17,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DocumentDataSchema } from '@hari/core';
-import type { DocumentBlock, DocumentSection, DocumentData, TableRowAction } from '@hari/core';
+import { DocumentDataSchema, normalizeDocumentData, normalizeListItemText } from '@hari/core';
+import type { DocumentBlock, DocumentSection, DocumentData, TableRowAction, ListItem, PDFBlock, ExcelBlock } from '@hari/core';
 import {
   BarChart as RBarChart, Bar,
   LineChart as RLineChart, Line,
@@ -28,6 +28,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { Document, Page } from 'react-pdf';
+import * as XLSX from 'xlsx';
 import { LocaleContext, UILocale, isRtlLocale, useMessages, getMessages } from '../i18n';
 
 // ── Shimmer keyframe (injected once at module init) ─────────────────────────────────
@@ -125,9 +127,10 @@ function blockToMarkdown(block: DocumentBlock): string {
     case 'paragraph':
       return `${block.text}\n`;
     case 'list': {
-      const items = block.items.map((item, i) =>
-        block.ordered ? `${i + 1}. ${item}` : `- ${item}`
-      );
+      const items = block.items.map((item, i) => {
+        const text = normalizeListItemText(item);
+        return block.ordered ? `${i + 1}. ${text}` : `- ${text}`;
+      });
       return items.join('\n') + '\n';
     }
     case 'code':
@@ -192,7 +195,7 @@ function sectionMatchesQuery(section: DocumentSection, query: string): boolean {
     switch (block.type) {
       case 'heading':    return block.text.toLowerCase().includes(q);
       case 'paragraph':  return block.text.toLowerCase().includes(q);
-      case 'list':       return block.items.some((i) => i.toLowerCase().includes(q));
+      case 'list':       return block.items.some((i) => normalizeListItemText(i).toLowerCase().includes(q));
       case 'code':       return block.code.toLowerCase().includes(q);
       case 'callout':    return block.text.toLowerCase().includes(q);
       case 'quote':      return block.text.toLowerCase().includes(q);
@@ -361,6 +364,14 @@ function renderBlock(
       inner = <EmbedBlock url={block.url} fallbackText={block.fallbackText} height={block.height} />;
       break;
 
+    case 'pdf':
+      inner = <PDFViewerBlock url={block.url} title={block.title} height={block.height} showControls={block.showControls} downloadable={block.downloadable} />;
+      break;
+
+    case 'excel':
+      inner = <ExcelViewerBlock url={block.url} csvData={block.csvData} title={block.title} showControls={block.showControls} downloadable={block.downloadable} height={block.height} />;
+      break;
+
     default:
       return null;
   }
@@ -403,15 +414,17 @@ function DividerBlock() {
 function HeadingBlock({ level, text }: { level: number; text: string }) {
   const p = useDarkPalette();
   const sizes: Record<number, string> = {
-    1: '1.25rem', 2: '1.125rem', 3: '1rem', 4: '0.9rem', 5: '0.85rem', 6: '0.8rem',
+    1: '1.375rem', 2: '1.2rem', 3: '1.05rem', 4: '0.95rem', 5: '0.875rem', 6: '0.825rem',
   };
   return (
     <div style={{
-      fontSize: sizes[level] ?? '1rem',
+      fontSize: sizes[level] ?? '1.05rem',
       fontWeight: level <= 2 ? 700 : 600,
       color: p.textPrimary,
-      marginTop: level <= 2 ? '1rem' : '0.5rem',
-      marginBottom: '0.25rem',
+      marginTop: level <= 2 ? '1.25rem' : '0.75rem',
+      marginBottom: '0.375rem',
+      lineHeight: 1.3,
+      letterSpacing: level <= 2 ? '-0.01em' : undefined,
     }}>
       {text}
     </div>
@@ -427,14 +440,14 @@ function ParagraphBlock({
   const lowConf = confidence !== undefined && confidence < 0.70;
   return (
     <div style={{
-      margin: '0.25rem 0',
-      fontSize: '0.8rem',
+      margin: '0.5rem 0',
+      fontSize: '0.84rem',
       color: p.textBody,
-      lineHeight: '1.65',
+      lineHeight: '1.75',
       borderLeft: confidence !== undefined && showConfidence
         ? `3px solid ${confidenceColor(confidence)}`
         : undefined,
-      paddingLeft: confidence !== undefined && showConfidence ? '0.625rem' : undefined,
+      paddingLeft: confidence !== undefined && showConfidence ? '0.75rem' : undefined,
       opacity: lowConf ? 0.85 : 1,
     }}>
       {text}
@@ -445,16 +458,32 @@ function ParagraphBlock({
   );
 }
 
-function ListBlock({ items, ordered }: { items: string[]; ordered: boolean }) {
+function ListBlock({ items, ordered }: { items: ListItem[]; ordered: boolean }) {
   const p = useDarkPalette();
   const Tag = ordered ? 'ol' : 'ul';
   return (
-    <Tag style={{ margin: '0.25rem 0', paddingLeft: '1.5rem' }}>
-      {items.map((item, i) => (
-        <li key={i} style={{ fontSize: '0.8rem', color: p.textBody, lineHeight: '1.65', marginBottom: '0.2rem' }}>
-          {item}
-        </li>
-      ))}
+    <Tag style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+      {items.map((item, i) => {
+        const isRich = typeof item === 'object';
+        const text = isRich ? item.text : item;
+        const desc = isRich ? item.description : undefined;
+        const icon = isRich ? item.icon : undefined;
+        const checked = isRich ? item.checked : undefined;
+        return (
+          <li key={i} style={{ fontSize: '0.84rem', color: p.textBody, lineHeight: '1.75', marginBottom: desc ? '0.5rem' : '0.3rem' }}>
+            {checked !== undefined && (
+              <span style={{ marginRight: '0.4rem', opacity: 0.7 }}>{checked ? '☑' : '☐'}</span>
+            )}
+            {icon && <span style={{ marginRight: '0.35rem' }}>{icon}</span>}
+            <span style={{ fontWeight: desc ? 600 : undefined }}>{text}</span>
+            {desc && (
+              <div style={{ fontSize: '0.78rem', color: p.textSecondary, marginTop: '0.15rem', lineHeight: 1.5, fontWeight: 400 }}>
+                {desc}
+              </div>
+            )}
+          </li>
+        );
+      })}
     </Tag>
   );
 }
@@ -1385,6 +1414,401 @@ function DataVizBlock({
   );
 }
 
+function PDFViewerBlock({
+  url, title, height, showControls, downloadable,
+}: {
+  url: string;
+  title?: string;
+  height?: number | string;
+  showControls?: boolean;
+  downloadable?: boolean;
+}) {
+  const p = useDarkPalette();
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLoadSuccess = ({ numPages: num }: { numPages: number }) => {
+    setNumPages(num);
+    setError(null);
+  };
+
+  const handleLoadError = (err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    setError(`Failed to load PDF: ${message}`);
+  };
+
+  const heightValue = height ?? '600px';
+
+  return (
+    <div style={{ margin: '0.75rem 0' }}>
+      {title && (
+        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: p.textPrimary, marginBottom: '0.5rem' }}>
+          {title}
+        </div>
+      )}
+      {error ? (
+        <div style={{
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fca5a5',
+          borderRadius: '0.375rem',
+          padding: '0.75rem',
+          color: '#991b1b',
+          fontSize: '0.8rem',
+        }}>
+          {error}
+          {downloadable && (
+            <a
+              href={url}
+              download
+              style={{ marginLeft: '1rem', color: '#1d4ed8', textDecoration: 'underline' }}
+            >
+              Download PDF
+            </a>
+          )}
+        </div>
+      ) : (
+        <>
+          {showControls && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginBottom: '0.5rem',
+              padding: '0.5rem 0.75rem',
+              backgroundColor: p.bgSubtle,
+              borderRadius: '0.375rem',
+              fontSize: '0.75rem',
+            }}>
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage <= 1}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  backgroundColor: currentPage <= 1 ? p.bgMuted : p.accent,
+                  color: currentPage <= 1 ? p.textMuted : 'white',
+                  border: 'none',
+                  borderRadius: '0.25rem',
+                  cursor: currentPage <= 1 ? 'default' : 'pointer',
+                }}
+              >
+                ← Prev
+              </button>
+              <span style={{ color: p.textSecondary }}>
+                Page {currentPage} {numPages ? `of ${numPages}` : ''}
+              </span>
+              <button
+                onClick={() => setCurrentPage(Math.min(numPages ?? currentPage, currentPage + 1))}
+                disabled={!numPages || currentPage >= numPages}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  backgroundColor: !numPages || currentPage >= numPages ? p.bgMuted : p.accent,
+                  color: !numPages || currentPage >= numPages ? p.textMuted : 'white',
+                  border: 'none',
+                  borderRadius: '0.25rem',
+                  cursor: !numPages || currentPage >= numPages ? 'default' : 'pointer',
+                }}
+              >
+                Next →
+              </button>
+              {downloadable && (
+                <a
+                  href={url}
+                  download
+                  style={{
+                    marginLeft: 'auto',
+                    padding: '0.25rem 0.5rem',
+                    backgroundColor: p.accent,
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '0.25rem',
+                    fontSize: '0.7rem',
+                  }}
+                >
+                  ⬇ Download
+                </a>
+              )}
+            </div>
+          )}
+          <div style={{
+            width: '100%',
+            height: typeof heightValue === 'string' ? heightValue : `${heightValue}px`,
+            border: `1px solid ${p.border}`,
+            borderRadius: '0.5rem',
+            overflow: 'auto',
+            backgroundColor: p.bg,
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+          }}>
+            <Document
+              file={url}
+              onLoadSuccess={handleLoadSuccess}
+              onLoadError={handleLoadError}
+              loading={<div style={{ padding: '2rem', color: p.textMuted }}>Loading PDF...</div>}
+            >
+              <Page pageNumber={currentPage} width={Math.min(600, document.documentElement.clientWidth - 40)} />
+            </Document>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ExcelViewerBlock({
+  url, csvData, title, showControls, downloadable, height,
+}: {
+  url?: string;
+  csvData?: string;
+  title?: string;
+  showControls?: boolean;
+  downloadable?: boolean;
+  height?: number | string;
+}) {
+  const p = useDarkPalette();
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+  const [filterText, setFilterText] = useState('');
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setError(null);
+        let fileData: string;
+
+        if (csvData) {
+          fileData = csvData;
+        } else if (url) {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          
+          if (url.endsWith('.xlsx') || url.endsWith('.xls')) {
+            const arrayBuffer = await blob.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[];
+            setData(json);
+            if (json.length > 0) {
+              setColumns(Object.keys(json[0] as Record<string, unknown>));
+            }
+            return;
+          } else {
+            fileData = await blob.text();
+          }
+        } else {
+          throw new Error('No data source provided');
+        }
+
+        // Parse CSV
+        const lines = fileData.trim().split('\n');
+        const cols = lines[0].split(',').map((c) => c.trim());
+        setColumns(cols);
+
+        const rows = lines.slice(1).map((line) => {
+          const values = line.split(',').map((v) => v.trim());
+          const row: Record<string, unknown> = {};
+          cols.forEach((col, i) => {
+            row[col] = values[i] ?? '';
+          });
+          return row;
+        });
+        setData(rows);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    };
+
+    loadData();
+  }, [url, csvData]);
+
+  const filteredData = useMemo(() => {
+    if (!filterText) return data;
+    const q = filterText.toLowerCase();
+    return data.filter((row) =>
+      columns.some((col) =>
+        String(row[col] ?? '').toLowerCase().includes(q),
+      ),
+    );
+  }, [data, filterText, columns]);
+
+  const sortedData = useMemo(() => {
+    if (!sortCol) return filteredData;
+    const sorted = [...filteredData].sort((a, b) => {
+      const aVal = a[sortCol];
+      const bVal = b[sortCol];
+      if (aVal === bVal) return 0;
+      const cmp = (aVal ?? '') < (bVal ?? '') ? -1 : 1;
+      return sortAsc ? cmp : -cmp;
+    });
+    return sorted;
+  }, [filteredData, sortCol, sortAsc]);
+
+  const heightValue = height ?? '500px';
+
+  return (
+    <div style={{ margin: '0.75rem 0' }}>
+      {title && (
+        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: p.textPrimary, marginBottom: '0.5rem' }}>
+          {title}
+        </div>
+      )}
+      {error ? (
+        <div style={{
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fca5a5',
+          borderRadius: '0.375rem',
+          padding: '0.75rem',
+          color: '#991b1b',
+          fontSize: '0.8rem',
+        }}>
+          Error loading spreadsheet: {error}
+        </div>
+      ) : (
+        <>
+          {showControls && (
+            <div style={{
+              display: 'flex',
+              gap: '0.75rem',
+              alignItems: 'center',
+              marginBottom: '0.5rem',
+              padding: '0.5rem 0.75rem',
+              backgroundColor: p.bgSubtle,
+              borderRadius: '0.375rem',
+              fontSize: '0.75rem',
+              flexWrap: 'wrap',
+            }}>
+              <input
+                type="text"
+                placeholder="Filter..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  border: `1px solid ${p.border}`,
+                  borderRadius: '0.25rem',
+                  backgroundColor: p.bg,
+                  color: p.textPrimary,
+                  fontSize: '0.75rem',
+                  flex: 1,
+                  minWidth: '150px',
+                }}
+              />
+              {downloadable && url && (
+                <a
+                  href={url}
+                  download
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    backgroundColor: p.accent,
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '0.25rem',
+                    fontSize: '0.7rem',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  ⬇ Download
+                </a>
+              )}
+              <span style={{ color: p.textMuted }}>
+                {sortedData.length} row{sortedData.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+          <div style={{
+            width: '100%',
+            height: typeof heightValue === 'string' ? heightValue : `${heightValue}px`,
+            border: `1px solid ${p.border}`,
+            borderRadius: '0.5rem',
+            overflow: 'auto',
+            backgroundColor: p.bg,
+          }}>
+            {columns.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: p.textMuted }}>
+                No data to display
+              </div>
+            ) : (
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: '0.8rem',
+              }}>
+                <thead>
+                  <tr style={{ backgroundColor: p.bgSubtle, position: 'sticky', top: 0 }}>
+                    {columns.map((col) => (
+                      <th
+                        key={col}
+                        onClick={() => {
+                          if (sortCol === col) {
+                            setSortAsc(!sortAsc);
+                          } else {
+                            setSortCol(col);
+                            setSortAsc(true);
+                          }
+                        }}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          textAlign: 'left',
+                          borderBottom: `1px solid ${p.border}`,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          color: p.textPrimary,
+                          userSelect: 'none',
+                          backgroundColor: sortCol === col ? p.bgMuted : 'transparent',
+                        }}
+                      >
+                        {col}
+                        {sortCol === col && (
+                          <span style={{ marginLeft: '0.25rem', fontSize: '0.7rem' }}>
+                            {sortAsc ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedData.map((row, rowIdx) => (
+                    <tr
+                      key={rowIdx}
+                      style={{
+                        backgroundColor: rowIdx % 2 === 0 ? p.bg : p.bgSubtle,
+                      }}
+                    >
+                      {columns.map((col) => (
+                        <td
+                          key={`${rowIdx}-${col}`}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            borderBottom: `1px solid ${p.border}`,
+                            color: p.textBody,
+                            maxWidth: '300px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={String(row[col] ?? '')}
+                        >
+                          {String(row[col] ?? '')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function EmbedBlock({
   url, fallbackText, height,
 }: {
@@ -1438,13 +1862,14 @@ function SectionBlock({
   }
 
   return (
-    <div id={`section-${section.id}`} style={{ marginBottom: '1rem' }}>
+    <div id={`section-${section.id}`} style={{ marginBottom: '1.5rem' }}>
       {section.title && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
-          marginBottom: collapsed ? 0 : '0.5rem',
-          borderBottom: `1px solid ${p.border}`,
-          paddingBottom: '0.25rem',
+          marginBottom: collapsed ? 0 : '0.75rem',
+          borderBottom: `1.5px solid ${p.border}`,
+          paddingBottom: '0.375rem',
+          paddingTop: '0.25rem',
         }}>
           {isCollapsible && (
             <button
@@ -1465,11 +1890,12 @@ function SectionBlock({
             onKeyDown={isCollapsible ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCollapsed((c) => !c); } } : undefined}
             style={{
               margin: 0,
-              fontSize: '0.875rem',
+              fontSize: '0.95rem',
               fontWeight: 700,
               color: p.textPrimary,
               cursor: isCollapsible ? 'pointer' : 'default',
               userSelect: 'none',
+              letterSpacing: '-0.01em',
             }}
           >
             {section.title}
@@ -1591,36 +2017,29 @@ export function DocumentRenderer({
   // locale correctly while this function bypasses the not-yet-set context.
   const m = getMessages(locale);
   const [searchQuery, setSearchQuery] = useState('');
-  const result = DocumentDataSchema.safeParse(data);
+  const result = DocumentDataSchema.safeParse(normalizeDocumentData(data));
 
-  if (!result.success) {
-    return (
-      <div style={{ color: '#dc2626', fontSize: '0.8rem', padding: '1rem', fontFamily: 'monospace' }}>
-        <strong>DocumentRenderer:</strong> invalid data shape.
-        <pre style={{ marginTop: '0.5rem', fontSize: '0.7rem' }}>
-          {JSON.stringify(result.error.flatten(), null, 2)}
-        </pre>
-      </div>
-    );
-  }
-
-  const doc = result.data;
+  // Compute docOrNull early so hooks below can close over it safely.
+  // Hooks MUST NOT be called after a conditional return — React rules of hooks.
+  const docOrNull = result.success ? result.data : null;
 
   // In executive density show only summary + exec-summary section.
   const densitySections =
-    density === 'executive'
-      ? doc.sections.filter((s) => s.id === 'exec-summary' || !s.title)
-      : doc.sections;
+    docOrNull == null
+      ? []
+      : density === 'executive'
+        ? docOrNull.sections.filter((s) => s.id === 'exec-summary' || !s.title)
+        : docOrNull.sections;
 
-  // Filter by search query (if showSearch is enabled)
+  // Filter by search query (if showSearch is enabled).
+  // Declared before the error-return below to comply with React hooks rules.
   const visibleSections = useMemo(() => {
     if (!showSearch || !searchQuery.trim()) return densitySections;
     return densitySections.filter((s) => sectionMatchesQuery(s, searchQuery.trim()));
   }, [densitySections, showSearch, searchQuery]);
 
-  const tocSections = visibleSections.filter((s) => !!s.title);
-
-  // Collect all image blocks for lightbox gallery navigation
+  // Collect all image blocks for lightbox gallery navigation.
+  // Declared before the error-return below to comply with React hooks rules.
   const imageGallery = useMemo<ImageGalleryEntry[]>(() => {
     const imgs: ImageGalleryEntry[] = [];
     for (const section of visibleSections) {
@@ -1633,17 +2052,33 @@ export function DocumentRenderer({
     return imgs;
   }, [visibleSections]);
 
+  // Error guard — placed after all hooks to comply with React rules of hooks.
+  if (!result.success) {
+    return (
+      <div style={{ color: '#dc2626', fontSize: '0.8rem', padding: '1rem', fontFamily: 'monospace' }}>
+        <strong>DocumentRenderer:</strong> invalid data shape.
+        <pre style={{ marginTop: '0.5rem', fontSize: '0.7rem' }}>
+          {JSON.stringify(result.error.flatten(), null, 2)}
+        </pre>
+      </div>
+    );
+  }
+
+  // doc is guaranteed non-null: result.success is true at this point.
+  const doc = result.data;
+  const tocSections = visibleSections.filter((s) => !!s.title);
+
   return (
     <LocaleContext.Provider value={locale}>
     <div dir={isRtlLocale(locale) ? 'rtl' : undefined} style={{ color: p.textBody }}>
       {/* Document header */}
       <div style={{
-        marginBottom: '1rem',
-        paddingBottom: '0.75rem',
+        marginBottom: '1.25rem',
+        paddingBottom: '1rem',
         borderBottom: `2px solid ${p.border}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1rem', fontWeight: 800, color: p.textPrimary }}>
+          <h2 style={{ margin: '0 0 0.375rem', fontSize: '1.15rem', fontWeight: 800, color: p.textPrimary, lineHeight: 1.3, letterSpacing: '-0.02em' }}>
             {doc.title}
           </h2>
           {doc.refreshable && (
@@ -1659,7 +2094,7 @@ export function DocumentRenderer({
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.68rem', color: p.textMuted, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.72rem', color: p.textMuted, flexWrap: 'wrap', marginBottom: '0.25rem' }}>
           {doc.author && <span>By {doc.author}</span>}
           {doc.publishedAt && (
             <span>{new Date(doc.publishedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
@@ -1786,12 +2221,13 @@ export function DocumentRenderer({
           backgroundColor: p.bgSubtle,
           border: `1px solid ${p.border}`,
           borderRadius: '0.5rem',
-          padding: '0.75rem 1rem',
-          marginBottom: '1rem',
-          fontSize: '0.8rem',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          fontSize: '0.84rem',
           color: p.textBody,
-          lineHeight: 1.65,
+          lineHeight: 1.75,
           fontStyle: 'italic',
+          borderLeft: `4px solid ${p.accent}`,
         }}>
           {doc.summary}
         </div>

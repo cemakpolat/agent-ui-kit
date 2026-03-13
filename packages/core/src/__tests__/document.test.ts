@@ -3,6 +3,7 @@ import {
   DocumentBlockSchema,
   DocumentSectionSchema,
   DocumentDataSchema,
+  normalizeListItemText,
 } from '../schemas/document';
 
 // ── DocumentBlockSchema ───────────────────────────────────────────────────────
@@ -60,6 +61,28 @@ describe('DocumentBlockSchema', () => {
     const result = DocumentBlockSchema.parse({ type: 'list', items: ['A', 'B'] });
     if (result.type === 'list') {
       expect(result.ordered).toBe(false);
+    }
+  });
+
+  it('parses a list with rich object items', () => {
+    const block = {
+      type: 'list',
+      items: [
+        { text: 'Class A', description: 'Base class' },
+        { text: 'Class B', icon: '📦' },
+        'Plain string item',
+      ],
+    };
+    const result = DocumentBlockSchema.parse(block);
+    if (result.type === 'list') {
+      expect(result.items).toHaveLength(3);
+      const first = result.items[0];
+      expect(typeof first).toBe('object');
+      if (typeof first === 'object') {
+        expect(first.text).toBe('Class A');
+        expect(first.description).toBe('Base class');
+      }
+      expect(result.items[2]).toBe('Plain string item');
     }
   });
 
@@ -406,5 +429,17 @@ describe('DocumentDataSchema', () => {
     expect(() =>
       DocumentDataSchema.parse({ ...MINIMAL, revision: 0 }),
     ).toThrow();
+  });
+});
+
+// ── normalizeListItemText ─────────────────────────────────────────────────────
+
+describe('normalizeListItemText', () => {
+  it('returns the string directly for plain string items', () => {
+    expect(normalizeListItemText('hello')).toBe('hello');
+  });
+
+  it('returns the text field for rich object items', () => {
+    expect(normalizeListItemText({ text: 'Class A', description: 'desc' })).toBe('Class A');
   });
 });

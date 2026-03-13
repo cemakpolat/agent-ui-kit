@@ -1,5 +1,8 @@
 import React, { useMemo } from 'react';
 import { TimelineDataSchema, type TimelineEvent, type TimelineEventStatus } from '@hari/core';
+import { resolveIcon } from '../utils/icon-resolver';
+import { useTheme } from '../ThemeContext';
+import { useMessages } from '../i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TimelineRenderer
@@ -17,16 +20,16 @@ export interface TimelineRendererProps {
 
 // ── Status styling ────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<
-  TimelineEventStatus,
-  { label: string; bg: string; text: string; border: string; dot: string }
-> = {
-  completed:   { label: 'Done',        bg: '#f0fdf4', text: '#166534', border: '#86efac', dot: '#22c55e' },
-  in_progress: { label: 'In Progress', bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd', dot: '#3b82f6' },
-  pending:     { label: 'Pending',     bg: '#f8fafc', text: '#475569', border: '#cbd5e1', dot: '#94a3b8' },
-  cancelled:   { label: 'Cancelled',   bg: '#fafafa', text: '#737373', border: '#d4d4d4', dot: '#a3a3a3' },
-  failed:      { label: 'Failed',      bg: '#fef2f2', text: '#991b1b', border: '#fca5a5', dot: '#ef4444' },
-};
+function useStatusConfig() {
+  const { theme } = useTheme();
+  return useMemo(() => ({
+    completed:   { label: 'Done',        bg: theme.colors.successSubtle, text: theme.colors.successText, border: theme.colors.success, dot: theme.colors.success },
+    in_progress: { label: 'In Progress', bg: theme.colors.infoSubtle,    text: theme.colors.infoText,    border: theme.colors.info,    dot: theme.colors.info },
+    pending:     { label: 'Pending',     bg: theme.colors.surfaceAlt,    text: theme.colors.textSecondary, border: theme.colors.border, dot: theme.colors.textMuted },
+    cancelled:   { label: 'Cancelled',   bg: theme.colors.surfaceAlt,    text: theme.colors.textMuted,   border: theme.colors.border, dot: theme.colors.textMuted },
+    failed:      { label: 'Failed',      bg: theme.colors.dangerSubtle,  text: theme.colors.dangerText,  border: theme.colors.danger, dot: theme.colors.danger },
+  } as Record<TimelineEventStatus, { label: string; bg: string; text: string; border: string; dot: string }>), [theme]);
+}
 
 // Deterministic palette for categories
 const CATEGORY_COLORS = [
@@ -94,11 +97,14 @@ interface EventCardProps {
 }
 
 function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain }: EventCardProps) {
-  const statusCfg = event.status ? STATUS_CONFIG[event.status] : null;
+  const { theme } = useTheme();
+  const statusConfig = useStatusConfig();
+  const statusCfg = event.status ? statusConfig[event.status] : null;
   const dur = event.endTimestamp ? duration(event.timestamp, event.endTimestamp) : null;
+  const ResolvedIcon = event.icon ? resolveIcon(event.icon, theme.id) : null;
 
   return (
-    <div style={{ display: 'flex', gap: '0.75rem', position: 'relative' }}>
+    <div role="listitem" style={{ display: 'flex', gap: '0.75rem', position: 'relative' }}>
       {/* Spine + dot */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
         <div style={{
@@ -106,7 +112,7 @@ function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain
           height: density === 'executive' ? '0.6rem' : '0.75rem',
           borderRadius: '50%',
           backgroundColor: dotColor,
-          border: '2px solid white',
+          border: `2px solid ${theme.colors.surface}`,
           boxShadow: `0 0 0 2px ${dotColor}`,
           zIndex: 1,
           flexShrink: 0,
@@ -116,7 +122,7 @@ function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain
           <div style={{
             width: '2px',
             flex: 1,
-            backgroundColor: '#e2e8f0',
+            backgroundColor: theme.colors.border,
             marginTop: '0.25rem',
             minHeight: '1.5rem',
           }} />
@@ -128,14 +134,16 @@ function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', flexWrap: 'wrap' }}>
           {/* Icon */}
           {event.icon && (
-            <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>{event.icon}</span>
+            <span style={{ fontSize: '0.85rem', flexShrink: 0, display: 'inline-flex', alignItems: 'center', color: theme.colors.accent }}>
+              {ResolvedIcon ? <ResolvedIcon size={14} /> : event.icon}
+            </span>
           )}
 
           {/* Title */}
           <span style={{
             fontWeight: density === 'executive' ? 500 : 600,
             fontSize: density === 'executive' ? '0.78rem' : '0.82rem',
-            color: '#0f172a',
+            color: theme.colors.text,
             flex: 1,
           }}>
             {event.title}
@@ -160,8 +168,8 @@ function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain
               onClick={() => onExplain(event.explainElementId!)}
               aria-label={`Explain: ${event.title}`}
               style={{
-                background: 'none', border: '1px solid #e2e8f0', borderRadius: '0.25rem',
-                padding: '0.05rem 0.3rem', fontSize: '0.6rem', color: '#64748b',
+                background: 'none', border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm,
+                padding: '0.05rem 0.3rem', fontSize: '0.6rem', color: theme.colors.textSecondary,
                 cursor: 'pointer', flexShrink: 0,
               }}
             >
@@ -172,9 +180,9 @@ function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain
 
         {/* Timestamp + duration */}
         {showTimestamps && density !== 'executive' && (
-          <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.15rem', display: 'flex', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.65rem', color: theme.colors.textMuted, marginTop: '0.15rem', display: 'flex', gap: '0.5rem' }}>
             <span>{formatTs(event.timestamp)}</span>
-            {dur && <span style={{ color: '#64748b' }}>· {dur}</span>}
+            {dur && <span style={{ color: theme.colors.textSecondary }}>· {dur}</span>}
           </div>
         )}
 
@@ -183,7 +191,7 @@ function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain
           <p style={{
             margin: '0.25rem 0 0',
             fontSize: '0.78rem',
-            color: '#475569',
+            color: theme.colors.textSecondary,
             lineHeight: 1.55,
           }}>
             {event.description}
@@ -201,8 +209,8 @@ function EventCard({ event, density, showTimestamps, dotColor, isLast, onExplain
           }}>
             {Object.entries(event.metadata).map(([k, v]) => (
               <React.Fragment key={k}>
-                <dt style={{ color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{k}</dt>
-                <dd style={{ margin: 0, color: '#475569', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                <dt style={{ color: theme.colors.textMuted, fontWeight: 600, whiteSpace: 'nowrap' }}>{k}</dt>
+                <dd style={{ margin: 0, color: theme.colors.textSecondary, fontFamily: theme.typography.familyMono, wordBreak: 'break-all' }}>
                   {typeof v === 'object' ? JSON.stringify(v) : String(v)}
                 </dd>
               </React.Fragment>
@@ -221,31 +229,27 @@ export function TimelineRenderer({
   density = 'operator',
   onExplain,
 }: TimelineRendererProps) {
+  const { theme } = useTheme();
+  const m = useMessages();
+  const statusConfig = useStatusConfig();
   const result = TimelineDataSchema.safeParse(data);
 
-  if (!result.success) {
-    return (
-      <div style={{ color: '#dc2626', fontSize: '0.8rem', padding: '1rem', fontFamily: 'monospace' }}>
-        <strong>TimelineRenderer:</strong> invalid data shape.
-        <pre style={{ marginTop: '0.5rem', fontSize: '0.7rem' }}>
-          {JSON.stringify(result.error.flatten(), null, 2)}
-        </pre>
-      </div>
-    );
-  }
+  // Compute tlOrNull early so hooks below can close over it safely.
+  // Hooks MUST NOT be called after a conditional return — React rules of hooks.
+  const tlOrNull = result.success ? result.data : null;
 
-  const tl = result.data;
-
-  // Sort events by timestamp ascending
+  // Sort events by timestamp ascending.
+  // Declared before the error-return below to comply with React hooks rules.
   const sorted = useMemo(() => {
-    return [...tl.events].sort(
+    if (!tlOrNull) return [];
+    return [...tlOrNull.events].sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
-  }, [tl.events]);
+  }, [tlOrNull]);
 
   // Executive density: show only the most recent N events
   const visible = density === 'executive'
-    ? sorted.slice(-tl.executiveCap)
+    ? sorted.slice(-(tlOrNull?.executiveCap ?? 5))
     : sorted;
 
   // Build category → color palette
@@ -257,27 +261,42 @@ export function TimelineRenderer({
 
   // Group events if groupBy is set
   const groups = useMemo<Array<{ label: string; events: TimelineEvent[] }>>(() => {
-    if (!tl.groupBy) return [{ label: '', events: visible }];
+    if (!tlOrNull?.groupBy) return [{ label: '', events: visible }];
     const map = new Map<string, TimelineEvent[]>();
     visible.forEach((e) => {
-      const key = groupKey(e, tl.groupBy!);
+      const key = groupKey(e, tlOrNull.groupBy!);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(e);
     });
     return Array.from(map.entries()).map(([label, events]) => ({ label, events }));
-  }, [visible, tl.groupBy]);
+  }, [visible, tlOrNull]);
+
+  // Error guard — placed after all hooks to comply with React rules of hooks.
+  if (!result.success) {
+    return (
+      <div style={{ color: theme.colors.danger, fontSize: '0.8rem', padding: '1rem', fontFamily: theme.typography.familyMono }}>
+        <strong>{m.timelineInvalidData}</strong>
+        <pre style={{ marginTop: '0.5rem', fontSize: '0.7rem' }}>
+          {JSON.stringify(result.error.flatten(), null, 2)}
+        </pre>
+      </div>
+    );
+  }
+
+  // tl is guaranteed non-null: result.success is true at this point.
+  const tl = result.data;
 
   return (
-    <div>
+    <div role="list" aria-label={tl.title ?? 'Timeline'}>
       {/* Header */}
       {tl.title && (
         <h3 style={{
           margin: '0 0 1rem',
           fontSize: '0.9rem',
           fontWeight: 700,
-          color: '#0f172a',
+          color: theme.colors.text,
           paddingBottom: '0.5rem',
-          borderBottom: '2px solid #e2e8f0',
+          borderBottom: `2px solid ${theme.colors.border}`,
         }}>
           {tl.title}
         </h3>
@@ -285,15 +304,15 @@ export function TimelineRenderer({
 
       {/* Executive banner */}
       {density === 'executive' && tl.events.length > tl.executiveCap && (
-        <p style={{ fontSize: '0.68rem', color: '#94a3b8', margin: '0 0 0.75rem', fontStyle: 'italic' }}>
-          Showing {tl.executiveCap} most recent of {tl.events.length} events
+        <p style={{ fontSize: '0.68rem', color: theme.colors.textMuted, margin: '0 0 0.75rem', fontStyle: 'italic' }}>
+          {m.timelineShowing(tl.executiveCap, tl.events.length)}
         </p>
       )}
 
       {/* Empty state */}
       {visible.length === 0 && (
-        <p style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center', padding: '2rem 0' }}>
-          No events to display.
+        <p style={{ fontSize: '0.8rem', color: theme.colors.textMuted, textAlign: 'center', padding: '2rem 0' }}>
+          {m.timelineNoEvents}
         </p>
       )}
 
@@ -307,22 +326,22 @@ export function TimelineRenderer({
               margin: gi === 0 ? '0 0 0.75rem' : '1rem 0 0.75rem',
             }}>
               <span style={{
-                fontSize: '0.65rem', fontWeight: 700, color: '#64748b',
+                fontSize: '0.65rem', fontWeight: 700, color: theme.colors.textSecondary,
                 textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
               }}>
                 {tl.groupBy === 'category' ? group.label : formatDate(group.events[0].timestamp)}
               </span>
-              <div style={{ flex: 1, height: '1px', backgroundColor: '#e2e8f0' }} />
+              <div style={{ flex: 1, height: '1px', backgroundColor: theme.colors.border }} />
             </div>
           )}
 
           {/* Events */}
           {group.events.map((event, ei) => {
             const dotColor = event.status
-              ? STATUS_CONFIG[event.status].dot
+              ? statusConfig[event.status].dot
               : event.category
                 ? categoryColor(event.category, catPalette)
-                : '#94a3b8';
+                : theme.colors.textMuted;
             return (
               <EventCard
                 key={event.id}
@@ -343,13 +362,13 @@ export function TimelineRenderer({
         <div style={{
           marginTop: '1.25rem',
           paddingTop: '0.75rem',
-          borderTop: '1px solid #e2e8f0',
+          borderTop: `1px solid ${theme.colors.border}`,
           display: 'flex', flexWrap: 'wrap', gap: '0.5rem',
         }}>
           {Array.from(catPalette.entries()).map(([cat, color]) => (
             <span key={cat} style={{
               display: 'flex', alignItems: 'center', gap: '0.3rem',
-              fontSize: '0.65rem', color: '#475569',
+              fontSize: '0.65rem', color: theme.colors.textSecondary,
             }}>
               <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
               {cat}

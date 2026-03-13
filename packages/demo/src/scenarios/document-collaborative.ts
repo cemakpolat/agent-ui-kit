@@ -63,7 +63,7 @@ export const documentCollaborativeIntent: IntentPayloadInput = {
           {
             type: 'callout',
             variant: 'warning',
-            text: '⚠ BroadcastChannel only works within the same browser profile and origin. Cross-device or cross-browser collaboration requires the WebSocket transport adapter.',
+            text: 'BroadcastChannel only works within the same browser profile and origin. Cross-device or cross-browser collaboration requires the WebSocket transport adapter.',
           },
         ],
       },
@@ -140,12 +140,18 @@ export const documentCollaborativeIntent: IntentPayloadInput = {
         blocks: [
           {
             type: 'table',
-            headers: ['Option', 'Latency', 'Infra Cost', 'Offline', 'Decision'],
+            headers: [
+              { key: 'option', label: 'Option' },
+              { key: 'latency', label: 'Latency', align: 'center' },
+              { key: 'infraCost', label: 'Infra Cost' },
+              { key: 'offline', label: 'Offline', align: 'center' },
+              { key: 'decision', label: 'Decision' },
+            ],
             rows: [
-              ['BroadcastChannel (chosen)', '< 1 ms', 'None', 'No', '✅ Adopted'],
-              ['WebSocket (pluggable fallback)', '2–20 ms', 'Server required', 'Possible', '⏳ Future'],
-              ['Yjs CRDT', '< 5 ms', 'None (or server)', 'Yes', '❌ Overkill for current scope'],
-              ['SharedWorker + MessageChannel', '< 2 ms', 'None', 'No', '❌ Complex DX'],
+              { option: 'BroadcastChannel (chosen)', latency: '< 1 ms', infraCost: 'None', offline: 'No', decision: '✅ Adopted' },
+              { option: 'WebSocket (pluggable fallback)', latency: '2–20 ms', infraCost: 'Server required', offline: 'Possible', decision: '⏳ Future' },
+              { option: 'Yjs CRDT', latency: '< 5 ms', infraCost: 'None (or server)', offline: 'Yes', decision: '❌ Overkill for current scope' },
+              { option: 'SharedWorker + MessageChannel', latency: '< 2 ms', infraCost: 'None', offline: 'No', decision: '❌ Complex DX' },
             ],
           },
         ],

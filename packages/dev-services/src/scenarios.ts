@@ -15,7 +15,8 @@ export type ScenarioId =
   | 'timeline-deployments'
   | 'workflow-onboarding'
   | 'kanban-sprint'
-  | 'tree-org-chart';
+  | 'tree-org-chart'
+  | 'map-fleet';
 
 export interface Scenario {
   id: ScenarioId;
@@ -147,6 +148,13 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
     name: 'Org Chart',
     description: 'Organizational structure',
     intent: createIntent('tree', 'hr', 'Company Org Chart'),
+  },
+
+  'map-fleet': {
+    id: 'map-fleet',
+    name: 'Fleet Map',
+    description: 'Fleet & warehouse locations',
+    intent: createIntent('map', 'logistics', 'Fleet & Warehouse Overview'),
   },
 };
 

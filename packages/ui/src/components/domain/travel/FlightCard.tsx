@@ -1,4 +1,5 @@
 import React from 'react';
+import { Leaf, ArrowRight } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Flight Cards — density-aware travel domain components
@@ -107,19 +108,22 @@ export function FlightCardOperator({ flight, selected, onSelect, onExplain }: Fl
           justifyContent: 'space-between',
           color: '#64748b',
           fontSize: '0.875rem',
+          alignItems: 'center',
         }}
       >
-        <span style={{ fontWeight: 500 }}>
-          {flight.departTime} → {flight.arriveTime}
+        <span style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {flight.departTime} <ArrowRight size={14} /> {flight.arriveTime}
         </span>
         <span>{flight.duration}</span>
         <span>{flight.stops === 0 ? 'Nonstop' : `${flight.stops} stop${flight.stops > 1 ? 's' : ''}`}</span>
       </div>
 
       {/* Row 3: carbon + note */}
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '0.375rem', fontSize: '0.75rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '0.375rem', fontSize: '0.75rem', alignItems: 'center' }}>
         {flight.carbon != null && (
-          <span style={{ color: '#059669' }}>🌿 {flight.carbon} kg CO₂</span>
+          <span style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Leaf size={12} /> {flight.carbon} kg CO₂
+          </span>
         )}
         {flight.note && (
           <span style={{ color: '#7c3aed', fontWeight: 600 }}>{flight.note}</span>

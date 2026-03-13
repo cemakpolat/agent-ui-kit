@@ -272,7 +272,7 @@ describe('TimelineRenderer', () => {
 
   it('shows error for invalid data', () => {
     render(<TimelineRenderer data={{ wrong: true }} density="operator" />);
-    expect(screen.getByText(/TimelineRenderer/)).toBeInTheDocument();
+    expect(screen.getByText(/Invalid timeline data/i)).toBeInTheDocument();
   });
 
   it('renders event icons', () => {
@@ -356,7 +356,7 @@ describe('WorkflowRenderer', () => {
 
   it('shows error for invalid data', () => {
     render(<WorkflowRenderer data={{ wrong: true }} density="operator" />);
-    expect(screen.getByText(/WorkflowRenderer/)).toBeInTheDocument();
+    expect(screen.getByText(/Invalid workflow data/i)).toBeInTheDocument();
   });
 
   it('renders confirmation step buttons', () => {
@@ -453,7 +453,7 @@ describe('KanbanRenderer', () => {
 
   it('shows empty column placeholder', () => {
     render(<KanbanRenderer data={KANBAN_DATA} density="operator" />);
-    expect(screen.getByText('Empty')).toBeInTheDocument();
+    expect(screen.getByText('No cards')).toBeInTheDocument();
   });
 
   it('calls onExplain from card', () => {
@@ -483,7 +483,7 @@ describe('KanbanRenderer', () => {
 
   it('shows error for invalid data', () => {
     render(<KanbanRenderer data={{ wrong: true }} density="operator" />);
-    expect(screen.getByText(/KanbanRenderer/)).toBeInTheDocument();
+    expect(screen.getByText(/Invalid kanban data/i)).toBeInTheDocument();
   });
 });
 
@@ -592,12 +592,12 @@ describe('TreeRenderer', () => {
 
   it('renders search box in expert density', () => {
     render(<TreeRenderer data={TREE_DATA} density="expert" />);
-    expect(screen.getByPlaceholderText(/filter/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
   });
 
   it('filters nodes via search in expert density', () => {
     render(<TreeRenderer data={TREE_DATA} density="expert" />);
-    const searchInput = screen.getByPlaceholderText(/filter/i);
+    const searchInput = screen.getByPlaceholderText(/search/i);
     // Type a query that matches a visible node (Platform Engineering is a direct child of expanded root)
     fireEvent.change(searchInput, { target: { value: 'Platform' } });
     // Matching node should still appear in the filtered tree
@@ -758,7 +758,7 @@ describe('ChatRenderer', () => {
 
   it('shows send button', () => {
     render(<ChatRenderer data={CHAT_DATA} density="operator" />);
-    expect(screen.getByRole('button', { name: /send message/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^send$/i })).toBeInTheDocument();
   });
 
   it('calls onSendMessage when message is typed and sent', () => {
@@ -766,7 +766,7 @@ describe('ChatRenderer', () => {
     render(<ChatRenderer data={CHAT_DATA} density="operator" onSendMessage={onSendMessage} />);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'test message' } });
-    const sendBtn = screen.getByRole('button', { name: /send message/i });
+    const sendBtn = screen.getByRole('button', { name: /^send$/i });
     fireEvent.click(sendBtn);
     expect(onSendMessage).toHaveBeenCalledWith('test message');
   });
@@ -784,7 +784,7 @@ describe('ChatRenderer', () => {
 
   it('renders empty state with no messages', () => {
     render(<ChatRenderer data={{ messages: [] }} density="operator" />);
-    expect(screen.getByText(/No messages yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/No data available/i)).toBeInTheDocument();
   });
 
   it('shows error for invalid data', () => {

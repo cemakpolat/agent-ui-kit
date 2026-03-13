@@ -1,6 +1,6 @@
 {
   "name": "agent-ui-kit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "HARI — Universal Human–Agent Runtime Interface: an intent-driven, trust-aware UI architecture for agentic platforms",
   "scripts": {
@@ -12,9 +12,14 @@
     "lint:fix": "eslint packages/*/src --ext .ts,.tsx --fix",
     "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,json}\"",
     "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx,json}\"",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "pnpm build && changeset publish",
+    "changeset:status": "changeset status --verbose"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@eslint/js": "^9.18.0",
     "eslint": "^9.18.0",
     "eslint-plugin-react": "^7.37.4",

@@ -1,5 +1,8 @@
 import React from 'react';
 import { KanbanDataSchema, type KanbanCard, type KanbanPriority } from '@hari/core';
+import { AlertTriangle, Calendar } from 'lucide-react';
+import { useTheme } from '../ThemeContext';
+import { useMessages } from '../i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KanbanRenderer — renders a task board with columns and cards.
@@ -60,21 +63,27 @@ interface CardProps {
 }
 
 function KanbanCardView({ card, density, onCardClick, onExplain }: CardProps) {
+  const { theme } = useTheme();
   const pCfg = card.priority ? PRIORITY_CONFIG[card.priority] : null;
   const due = card.dueDate ? formatDueDate(card.dueDate) : null;
 
   return (
     <div
+      role="button"
+      tabIndex={onCardClick ? 0 : undefined}
+      aria-label={`Card: ${card.title}${card.priority ? `, priority: ${card.priority}` : ''}`}
       onClick={() => onCardClick?.(card.id)}
+      onKeyDown={onCardClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCardClick(card.id); } } : undefined}
       style={{
         padding: density === 'executive' ? '0.3rem 0.5rem' : '0.6rem 0.75rem',
-        backgroundColor: 'white',
-        border: '1px solid #e2e8f0',
-        borderLeft: pCfg ? `3px solid ${pCfg.dot}` : '1px solid #e2e8f0',
-        borderRadius: '0.375rem',
+        backgroundColor: theme.colors.surface,
+        border: `1px solid ${theme.colors.border}`,
+        borderLeft: pCfg ? `3px solid ${pCfg.dot}` : `1px solid ${theme.colors.border}`,
+        borderRadius: theme.radius.sm,
         cursor: onCardClick ? 'pointer' : 'default',
         boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
         transition: 'box-shadow 0.15s',
+        outline: 'none',
       }}
       onMouseEnter={(e) => { if (onCardClick) (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)'; }}
@@ -83,7 +92,7 @@ function KanbanCardView({ card, density, onCardClick, onExplain }: CardProps) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.25rem' }}>
         <span style={{
           fontSize: density === 'executive' ? '0.72rem' : '0.78rem',
-          fontWeight: 600, color: '#1e293b', lineHeight: 1.35, flex: 1,
+          fontWeight: 600, color: theme.colors.text, lineHeight: 1.35, flex: 1,
         }}>
           {card.title}
         </span>
@@ -92,8 +101,8 @@ function KanbanCardView({ card, density, onCardClick, onExplain }: CardProps) {
             onClick={(e) => { e.stopPropagation(); onExplain(card.explainElementId!); }}
             aria-label={`Explain: ${card.title}`}
             style={{
-              background: 'none', border: '1px solid #e2e8f0', borderRadius: '0.2rem',
-              padding: '0 0.25rem', fontSize: '0.55rem', color: '#94a3b8', cursor: 'pointer',
+              background: 'none', border: `1px solid ${theme.colors.border}`, borderRadius: '0.2rem',
+              padding: '0 0.25rem', fontSize: '0.55rem', color: theme.colors.textMuted, cursor: 'pointer',
               flexShrink: 0,
             }}
           >
@@ -105,7 +114,7 @@ function KanbanCardView({ card, density, onCardClick, onExplain }: CardProps) {
       {/* Description (operator+) */}
       {density !== 'executive' && card.description && (
         <p style={{
-          margin: '0.25rem 0 0', fontSize: '0.7rem', color: '#64748b',
+          margin: '0.25rem 0 0', fontSize: '0.7rem', color: theme.colors.textSecondary,
           lineHeight: 1.45, display: '-webkit-box',
           WebkitLineClamp: density === 'operator' ? 2 : undefined,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
@@ -128,19 +137,21 @@ function KanbanCardView({ card, density, onCardClick, onExplain }: CardProps) {
           )}
           {card.assignee && (
             <span style={{
-              fontSize: '0.6rem', color: '#64748b', fontWeight: 500,
+              fontSize: '0.6rem', color: theme.colors.textSecondary, fontWeight: 500,
               padding: '0.1rem 0.35rem',
-              backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.25rem',
+              backgroundColor: theme.colors.surfaceAlt, border: `1px solid ${theme.colors.border}`, borderRadius: '0.25rem',
             }}>
               {card.assignee}
             </span>
           )}
           {due && (
             <span style={{
-              fontSize: '0.6rem', color: due.overdue ? '#dc2626' : '#64748b',
+              fontSize: '0.6rem', color: due.overdue ? theme.colors.danger : theme.colors.textSecondary,
               fontWeight: due.overdue ? 700 : 500,
+              display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
             }}>
-              {due.overdue ? '⚠ ' : ''}{due.label}
+              {due.overdue ? <AlertTriangle size={10} /> : <Calendar size={10} />}
+              {due.label}
             </span>
           )}
         </div>
@@ -174,8 +185,8 @@ function KanbanCardView({ card, density, onCardClick, onExplain }: CardProps) {
         }}>
           {Object.entries(card.metadata).map(([k, v]) => (
             <React.Fragment key={k}>
-              <dt style={{ color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{k}</dt>
-              <dd style={{ margin: 0, color: '#475569', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+              <dt style={{ color: theme.colors.textMuted, fontWeight: 600, whiteSpace: 'nowrap' }}>{k}</dt>
+              <dd style={{ margin: 0, color: theme.colors.textSecondary, wordBreak: 'break-all', fontFamily: theme.typography.familyMono }}>
                 {typeof v === 'object' ? JSON.stringify(v) : String(v)}
               </dd>
             </React.Fragment>
@@ -194,12 +205,14 @@ export function KanbanRenderer({
   onExplain,
   onCardClick,
 }: KanbanRendererProps) {
+  const { theme } = useTheme();
+  const m = useMessages();
   const result = KanbanDataSchema.safeParse(data);
 
   if (!result.success) {
     return (
-      <div style={{ color: '#dc2626', fontSize: '0.8rem', padding: '1rem', fontFamily: 'monospace' }}>
-        <strong>KanbanRenderer:</strong> invalid data shape.
+      <div style={{ color: theme.colors.danger, fontSize: '0.8rem', padding: '1rem', fontFamily: theme.typography.familyMono }}>
+        <strong>{m.kanbanInvalidData}</strong>
         <pre style={{ marginTop: '0.5rem', fontSize: '0.7rem' }}>
           {JSON.stringify(result.error.flatten(), null, 2)}
         </pre>
@@ -213,9 +226,9 @@ export function KanbanRenderer({
 
   if (density === 'executive') {
     return (
-      <div>
+      <div role="region" aria-label={board.title ?? 'Kanban board'}>
         {board.title && (
-          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a', marginBottom: '0.75rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: theme.colors.text, marginBottom: '0.75rem' }}>
             {board.title}
           </div>
         )}
@@ -229,19 +242,19 @@ export function KanbanRenderer({
             return (
               <div key={col.id} style={{
                 padding: '0.5rem 0.75rem',
-                border: '1px solid #e2e8f0', borderRadius: '0.375rem',
-                borderTop: col.color ? `3px solid ${col.color}` : '3px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
+                border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm,
+                borderTop: col.color ? `3px solid ${col.color}` : `3px solid ${theme.colors.border}`,
+                backgroundColor: theme.colors.surfaceAlt,
               }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', marginBottom: '0.2rem' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: theme.colors.textSecondary, marginBottom: '0.2rem' }}>
                   {col.title}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 800, color: over ? '#ef4444' : '#0f172a' }}>
+                  <span style={{ fontSize: '1rem', fontWeight: 800, color: over ? theme.colors.danger : theme.colors.text }}>
                     {col.cards.length}
                   </span>
                   {col.wipLimit != null && board.showWipLimits && (
-                    <span style={{ fontSize: '0.62rem', color: over ? '#ef4444' : '#94a3b8' }}>
+                    <span style={{ fontSize: '0.62rem', color: over ? theme.colors.danger : theme.colors.textMuted }}>
                       / {col.wipLimit}
                     </span>
                   )}
@@ -257,11 +270,11 @@ export function KanbanRenderer({
   // ── Operator / Expert: full board ──────────────────────────────────────
 
   return (
-    <div>
+    <div role="region" aria-label={board.title ?? 'Kanban board'}>
       {board.title && (
         <h3 style={{
-          margin: '0 0 1rem', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a',
-          paddingBottom: '0.5rem', borderBottom: '2px solid #e2e8f0',
+          margin: '0 0 1rem', fontSize: '0.9rem', fontWeight: 700, color: theme.colors.text,
+          paddingBottom: '0.5rem', borderBottom: `2px solid ${theme.colors.border}`,
         }}>
           {board.title}
         </h3>
@@ -278,26 +291,26 @@ export function KanbanRenderer({
           return (
             <div key={col.id} style={{
               display: 'flex', flexDirection: 'column',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0', borderRadius: '0.5rem',
+              backgroundColor: theme.colors.surfaceAlt,
+              border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.md,
               overflow: 'hidden',
               minWidth: 0,
             }}>
               {/* Column header */}
               <div style={{
                 padding: '0.5rem 0.75rem',
-                borderBottom: `3px solid ${col.color ?? '#e2e8f0'}`,
-                backgroundColor: 'white',
+                borderBottom: `3px solid ${col.color ?? theme.colors.border}`,
+                backgroundColor: theme.colors.surface,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e293b' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: theme.colors.text }}>
                   {col.title}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   {board.showCardCount && (
                     <span style={{
                       fontSize: '0.65rem', fontWeight: 700,
-                      color: over ? '#ef4444' : '#64748b',
+                      color: over ? theme.colors.danger : theme.colors.textSecondary,
                     }}>
                       {col.cards.length}
                       {col.wipLimit != null && board.showWipLimits && (
@@ -306,7 +319,7 @@ export function KanbanRenderer({
                     </span>
                   )}
                   {over && (
-                    <span title="WIP limit exceeded" style={{ fontSize: '0.7rem' }}>⚠</span>
+                    <span title={m.kanbanWipLimit(col.wipLimit!)} style={{ fontSize: '0.7rem' }}>⚠</span>
                   )}
                 </div>
               </div>
@@ -329,9 +342,9 @@ export function KanbanRenderer({
                 {col.cards.length === 0 && (
                   <div style={{
                     textAlign: 'center', padding: '1rem 0',
-                    fontSize: '0.7rem', color: '#cbd5e1', fontStyle: 'italic',
+                    fontSize: '0.7rem', color: theme.colors.textMuted, fontStyle: 'italic',
                   }}>
-                    Empty
+                    {m.kanbanNoCards}
                   </div>
                 )}
               </div>

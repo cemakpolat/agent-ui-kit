@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { WorkflowDataSchema, type WorkflowStep, type WorkflowStepStatus } from '@hari/core';
 import { FormRenderer } from './FormRenderer';
+import { useTheme } from '../ThemeContext';
+import { useMessages } from '../i18n';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WorkflowRenderer — renders a multi-step guided process.
@@ -23,16 +25,16 @@ export interface WorkflowRendererProps {
 
 // ── Status styling ─────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<
-  WorkflowStepStatus,
-  { icon: string; dotBg: string; dotBorder: string; textColor: string }
-> = {
-  completed:   { icon: '✓', dotBg: '#22c55e', dotBorder: '#16a34a', textColor: '#166534' },
-  in_progress: { icon: '●', dotBg: '#4f46e5', dotBorder: '#4338ca', textColor: '#4338ca' },
-  failed:      { icon: '✕', dotBg: '#ef4444', dotBorder: '#dc2626', textColor: '#991b1b' },
-  skipped:     { icon: '–', dotBg: '#94a3b8', dotBorder: '#64748b', textColor: '#64748b' },
-  pending:     { icon: '',  dotBg: '#e2e8f0', dotBorder: '#cbd5e1', textColor: '#94a3b8' },
-};
+function useStatusConfig() {
+  const { theme } = useTheme();
+  return {
+    completed:   { icon: '✓', dotBg: theme.colors.success, dotBorder: theme.colors.success, textColor: theme.colors.successText },
+    in_progress: { icon: '●', dotBg: theme.colors.accent, dotBorder: theme.colors.accent, textColor: theme.colors.accent },
+    failed:      { icon: '✕', dotBg: theme.colors.danger, dotBorder: theme.colors.danger, textColor: theme.colors.dangerText },
+    skipped:     { icon: '–', dotBg: theme.colors.textMuted, dotBorder: theme.colors.textSecondary, textColor: theme.colors.textSecondary },
+    pending:     { icon: '',  dotBg: theme.colors.surfaceAlt, dotBorder: theme.colors.border, textColor: theme.colors.textMuted },
+  } as Record<WorkflowStepStatus, { icon: string; dotBg: string; dotBorder: string; textColor: string }>;
+}
 
 // ── Step content panels ────────────────────────────────────────────────────
 
@@ -45,10 +47,12 @@ interface StepContentProps {
 }
 
 function StepContent({ step, density, collectedValues, onFormChange, onConfirm }: StepContentProps) {
+  const { theme } = useTheme();
+  const m = useMessages();
   switch (step.type) {
     case 'info':
       return step.content ? (
-        <p style={{ margin: 0, fontSize: '0.82rem', color: '#475569', lineHeight: 1.65 }}>
+        <p style={{ margin: 0, fontSize: '0.82rem', color: theme.colors.textSecondary, lineHeight: 1.65 }}>
           {step.content}
         </p>
       ) : null;
@@ -68,7 +72,7 @@ function StepContent({ step, density, collectedValues, onFormChange, onConfirm }
       return (
         <div>
           {step.content && (
-            <p style={{ margin: '0 0 1rem', fontSize: '0.82rem', color: '#475569', lineHeight: 1.65 }}>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.82rem', color: theme.colors.textSecondary, lineHeight: 1.65 }}>
               {step.content}
             </p>
           )}
@@ -77,21 +81,21 @@ function StepContent({ step, density, collectedValues, onFormChange, onConfirm }
               onClick={() => onConfirm(true)}
               style={{
                 padding: '0.4rem 1rem', fontSize: '0.8rem', fontWeight: 600,
-                backgroundColor: '#4f46e5', color: 'white',
-                border: 'none', borderRadius: '0.375rem', cursor: 'pointer',
+                backgroundColor: theme.colors.accent, color: theme.colors.accentText,
+                border: 'none', borderRadius: theme.radius.sm, cursor: 'pointer',
               }}
             >
-              Confirm
+              {m.workflowConfirm}
             </button>
             <button
               onClick={() => onConfirm(false)}
               style={{
                 padding: '0.4rem 1rem', fontSize: '0.8rem', fontWeight: 600,
-                backgroundColor: 'white', color: '#64748b',
-                border: '1px solid #cbd5e1', borderRadius: '0.375rem', cursor: 'pointer',
+                backgroundColor: theme.colors.surface, color: theme.colors.textSecondary,
+                border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm, cursor: 'pointer',
               }}
             >
-              Cancel
+              {m.workflowCancel}
             </button>
           </div>
         </div>
@@ -105,12 +109,12 @@ function StepContent({ step, density, collectedValues, onFormChange, onConfirm }
         }}>
           {step.reviewItems.map((item, i) => (
             <React.Fragment key={i}>
-              <dt style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap', paddingTop: '0.1rem' }}>
+              <dt style={{ fontSize: '0.72rem', color: theme.colors.textMuted, fontWeight: 600, whiteSpace: 'nowrap', paddingTop: '0.1rem' }}>
                 {item.label}
               </dt>
               <dd style={{
                 margin: 0, fontSize: '0.8rem',
-                color: item.highlight ? '#0f172a' : '#475569',
+                color: item.highlight ? theme.colors.text : theme.colors.textSecondary,
                 fontWeight: item.highlight ? 700 : 400,
               }}>
                 {item.value}
@@ -128,14 +132,16 @@ function StepContent({ step, density, collectedValues, onFormChange, onConfirm }
 // ── Step dot (for sidebar / header) ───────────────────────────────────────
 
 function StepDot({ status, index, active }: { status: WorkflowStepStatus; index: number; active: boolean }) {
-  const cfg = STATUS_CONFIG[status];
+  const statusConfig = useStatusConfig();
+  const { theme } = useTheme();
+  const cfg = statusConfig[status];
   return (
     <div style={{
       width: '1.5rem', height: '1.5rem', borderRadius: '50%', flexShrink: 0,
-      backgroundColor: active ? '#4f46e5' : cfg.dotBg,
-      border: `2px solid ${active ? '#4338ca' : cfg.dotBorder}`,
+      backgroundColor: active ? theme.colors.accent : cfg.dotBg,
+      border: `2px solid ${active ? theme.colors.accent : cfg.dotBorder}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: '0.6rem', fontWeight: 700, color: active ? 'white' : cfg.textColor,
+      fontSize: '0.6rem', fontWeight: 700, color: active ? theme.colors.accentText : cfg.textColor,
     }}>
       {status === 'completed' ? '✓' : status === 'failed' ? '✕' : index + 1}
     </div>
@@ -150,12 +156,15 @@ export function WorkflowRenderer({
   onComplete,
   onStepChange,
 }: WorkflowRendererProps) {
+  const { theme } = useTheme();
+  const statusConfig = useStatusConfig();
+  const m = useMessages();
   const result = WorkflowDataSchema.safeParse(data);
 
   if (!result.success) {
     return (
-      <div style={{ color: '#dc2626', fontSize: '0.8rem', padding: '1rem', fontFamily: 'monospace' }}>
-        <strong>WorkflowRenderer:</strong> invalid data shape.
+      <div style={{ color: theme.colors.danger, fontSize: '0.8rem', padding: '1rem', fontFamily: theme.typography.familyMono }}>
+        <strong>{m.workflowInvalidData}</strong>
         <pre style={{ marginTop: '0.5rem', fontSize: '0.7rem' }}>
           {JSON.stringify(result.error.flatten(), null, 2)}
         </pre>
@@ -238,31 +247,31 @@ export function WorkflowRenderer({
           {stepAnnouncement}
         </span>
         {wf.title && (
-          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a', marginBottom: '0.5rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: theme.colors.text, marginBottom: '0.5rem' }}>
             {wf.title}
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
           <div style={{
-            flex: 1, height: '0.375rem', backgroundColor: '#e2e8f0',
+            flex: 1, height: '0.375rem', backgroundColor: theme.colors.surfaceAlt,
             borderRadius: '9999px', overflow: 'hidden',
           }}>
             <div style={{
               width: `${progressPct}%`, height: '100%',
-              backgroundColor: '#4f46e5', borderRadius: '9999px',
+              backgroundColor: theme.colors.accent, borderRadius: '9999px',
               transition: 'width 0.3s',
             }} />
           </div>
-          <span style={{ fontSize: '0.65rem', color: '#64748b', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '0.65rem', color: theme.colors.textSecondary, whiteSpace: 'nowrap' }}>
             {currentIndex + 1}/{wf.steps.length}
           </span>
         </div>
-        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1e293b' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: theme.colors.text }}>
           {currentStep?.icon && <span style={{ marginRight: '0.25rem' }}>{currentStep.icon}</span>}
           {currentStep?.title}
         </div>
         {currentStep?.description && (
-          <p style={{ margin: '0.25rem 0 0', fontSize: '0.72rem', color: '#64748b' }}>
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.72rem', color: theme.colors.textSecondary }}>
             {currentStep.description}
           </p>
         )}
@@ -294,8 +303,8 @@ export function WorkflowRenderer({
       </span>
       {wf.title && (
         <h3 style={{
-          margin: '0 0 1rem', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a',
-          paddingBottom: '0.5rem', borderBottom: '2px solid #e2e8f0',
+          margin: '0 0 1rem', fontSize: '0.9rem', fontWeight: 700, color: theme.colors.text,
+          paddingBottom: '0.5rem', borderBottom: `2px solid ${theme.colors.border}`,
         }}>
           {wf.title}
         </h3>
@@ -310,7 +319,7 @@ export function WorkflowRenderer({
         <div>
           {wf.steps.map((step, i) => {
             const isActive = i === currentIndex;
-            const cfg = STATUS_CONFIG[step.status];
+            const cfg = statusConfig[step.status];
             const canNavigate = wf.allowSkipAhead || i <= currentIndex || step.status === 'completed';
             return (
               <button
@@ -322,9 +331,9 @@ export function WorkflowRenderer({
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
                   width: '100%', padding: '0.4rem 0.5rem',
-                  background: isActive ? '#eff6ff' : 'none',
-                  border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
-                  borderRadius: '0.375rem', cursor: canNavigate ? 'pointer' : 'default',
+                  background: isActive ? theme.colors.accentSubtle : 'none',
+                  border: isActive ? `1px solid ${theme.colors.borderFocus}` : '1px solid transparent',
+                  borderRadius: theme.radius.sm, cursor: canNavigate ? 'pointer' : 'default',
                   marginBottom: '0.25rem', textAlign: 'left',
                 }}
               >
@@ -332,7 +341,7 @@ export function WorkflowRenderer({
                 <div style={{ minWidth: 0 }}>
                   <div style={{
                     fontSize: '0.75rem', fontWeight: isActive ? 700 : 500,
-                    color: isActive ? '#1e40af' : '#475569',
+                    color: isActive ? theme.colors.accent : theme.colors.textSecondary,
                     lineHeight: 1.3,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
@@ -352,19 +361,19 @@ export function WorkflowRenderer({
 
         {/* Current step content panel */}
         <div style={{
-          border: '1px solid #e2e8f0', borderRadius: '0.5rem',
-          padding: '1rem', backgroundColor: '#fafafa',
+          border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.md,
+          padding: '1rem', backgroundColor: theme.colors.surfaceAlt,
           minHeight: '6rem',
         }}>
           {currentStep && (
             <>
               <div style={{ marginBottom: '0.75rem' }}>
-                <h4 style={{ margin: '0 0 0.2rem', fontSize: '0.875rem', fontWeight: 700, color: '#0f172a' }}>
+                <h4 style={{ margin: '0 0 0.2rem', fontSize: '0.875rem', fontWeight: 700, color: theme.colors.text }}>
                   {currentStep.icon && <span style={{ marginRight: '0.3rem' }}>{currentStep.icon}</span>}
                   {currentStep.title}
                 </h4>
                 {currentStep.description && (
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', lineHeight: 1.5 }}>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: theme.colors.textSecondary, lineHeight: 1.5 }}>
                     {currentStep.description}
                   </p>
                 )}
@@ -382,7 +391,7 @@ export function WorkflowRenderer({
               {currentStep.type !== 'confirmation' && (
                 <div style={{
                   display: 'flex', gap: '0.5rem', alignItems: 'center',
-                  marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0',
+                  marginTop: '1rem', paddingTop: '0.75rem', borderTop: `1px solid ${theme.colors.border}`,
                   flexWrap: 'wrap',
                 }}>
                   {!isFirst && (
@@ -391,11 +400,11 @@ export function WorkflowRenderer({
                       onClick={handlePrev}
                       style={{
                         padding: '0.35rem 0.875rem', fontSize: '0.78rem', fontWeight: 600,
-                        backgroundColor: 'white', color: '#475569',
-                        border: '1px solid #cbd5e1', borderRadius: '0.375rem', cursor: 'pointer',
+                        backgroundColor: theme.colors.surface, color: theme.colors.textSecondary,
+                        border: `1px solid ${theme.colors.border}`, borderRadius: theme.radius.sm, cursor: 'pointer',
                       }}
                     >
-                      ← Back
+                      {m.workflowBack}
                     </button>
                   )}
                   <button
@@ -403,11 +412,11 @@ export function WorkflowRenderer({
                     onClick={handleNext}
                     style={{
                       padding: '0.35rem 0.875rem', fontSize: '0.78rem', fontWeight: 600,
-                      backgroundColor: '#4f46e5', color: 'white',
-                      border: 'none', borderRadius: '0.375rem', cursor: 'pointer',
+                      backgroundColor: theme.colors.accent, color: theme.colors.accentText,
+                      border: 'none', borderRadius: theme.radius.sm, cursor: 'pointer',
                     }}
                   >
-                    {isLast ? wf.finishLabel : 'Next →'}
+                    {isLast ? wf.finishLabel : m.workflowNext}
                   </button>
                   {currentStep.skippable && !isLast && (
                     <button
@@ -415,14 +424,14 @@ export function WorkflowRenderer({
                       onClick={handleSkip}
                       style={{
                         padding: '0.35rem 0.5rem', fontSize: '0.72rem',
-                        background: 'none', color: '#94a3b8',
+                        background: 'none', color: theme.colors.textMuted,
                         border: 'none', cursor: 'pointer',
                       }}
                     >
-                      Skip
+                      {m.workflowSkip}
                     </button>
                   )}
-                  <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#94a3b8' }}>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: theme.colors.textMuted }}>
                     Step {currentIndex + 1} of {wf.steps.length}
                   </span>
                 </div>
